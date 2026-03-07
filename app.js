@@ -2341,14 +2341,20 @@ const app = {
       radial-gradient(circle at 90% 90%, rgba(60,40,10,0.05) 0%, transparent 15%),
       linear-gradient(175deg, #f0deb4 0%, #e8d1a0 25%, #f2e2b8 50%, #e5cfa0 75%, #ead8b0 100%);
     color: #2a1f0e;
-    padding: 0.35in 0.4in;
+    padding: 0;
     font-size: 10pt;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    border: 3px solid #5c1a0a;
-    position: relative;
   }
-  body::before {
+  .page {
+    border: 3px solid #5c1a0a;
+    padding: 0.35in 0.4in;
+    position: relative;
+    page-break-after: always;
+    min-height: 9.2in;
+  }
+  .page:last-child { page-break-after: auto; }
+  .page::before {
     content: '';
     position: absolute;
     top: 5px; left: 5px; right: 5px; bottom: 5px;
@@ -2356,7 +2362,7 @@ const app = {
     pointer-events: none;
     z-index: 0;
   }
-  body::after {
+  .page::after {
     content: '';
     position: absolute;
     top: 9px; left: 9px; right: 9px; bottom: 9px;
@@ -2364,7 +2370,22 @@ const app = {
     pointer-events: none;
     z-index: 0;
   }
-  body > * { position: relative; z-index: 1; }
+  .page > * { position: relative; z-index: 1; }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Cinzel', serif;
+    font-size: 8pt;
+    color: #5c1a0a;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 2px solid #5c1a0a;
+    padding-bottom: 4px;
+    margin-bottom: 10px;
+  }
+  .page-header .pg-name { font-family: 'Rye', serif; font-size: 10pt; letter-spacing: 3px; }
+  .page-header .pg-label { font-size: 7pt; color: #8b7355; letter-spacing: 1px; }
   .sheet-title {
     text-align: center;
     font-family: 'Rye', 'Cinzel', serif;
@@ -2492,6 +2513,7 @@ const app = {
   }
 </style></head><body>
 
+<div class="page">
 <div class="sheet-title">Deadlands</div>
 <div class="sheet-subtitle">${esc(data.settingName)} \u2014 Savage Worlds Character Sheet</div>
 
@@ -2530,6 +2552,31 @@ const app = {
       <div class="section-title">Edges</div>
       ${data.edges.length > 0 ? data.edges.map(e => `<div style="padding:2px 0; border-bottom:1px dotted #c4a96a;"><strong>${e.name}</strong>${e.summary ? ' \u2014 <span style="font-size:8pt; color:#6b4c2a;">' + esc(e.summary) + '</span>' : ''}</div>`).join('') : '<div style="color:#8b7355; font-style:italic;">None</div>'}
     </div>
+  </div>
+</div>
+</div>
+
+<div class="page">
+<div class="page-header"><span class="pg-name">${esc(data.name)}</span><span class="pg-label">Page 2 \u2014 Continued</span></div>
+
+<div class="section">
+  <div class="section-title">Powers</div>
+  <table>
+    <tr><th style="width:4%;">#</th><th style="width:24%;">Power Name</th><th style="width:22%;">Trapping</th><th style="width:8%;">PP</th><th style="width:14%;">Range</th><th style="width:28%;">Notes</th></tr>
+    <tr><td>1</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>2</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>3</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>4</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>5</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>6</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>7</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>8</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>9</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    <tr><td>10</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+  </table>
+  <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:8pt; color:#6b4c2a;">
+    <span><strong>Power Points:</strong> ___ / ___</span>
+    <span><strong>Arcane Background:</strong> ________________________</span>
   </div>
 </div>
 
@@ -2596,6 +2643,7 @@ ${data.notes ? `
 `}
 
 <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
+</div>
 </body></html>`;
   },
 
@@ -2626,41 +2674,56 @@ ${data.notes ? `
       radial-gradient(circle at 15% 15%, rgba(80,50,20,0.05) 0%, transparent 18%),
       linear-gradient(168deg, #ede0c8 0%, #e2d1b0 20%, #eee2ca 45%, #e0ccaa 70%, #ece0c6 100%);
     color: #1a1209;
-    padding: 0.3in;
+    padding: 0;
     font-size: 9.5pt;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .border-frame {
+  .page {
     border: 3px solid #6b3a1f;
-    padding: 4px;
+    padding: 0.3in 0.35in;
     position: relative;
-    background: transparent;
+    page-break-after: always;
+    min-height: 9.2in;
   }
-  .border-frame::before {
+  .page:last-child { page-break-after: auto; }
+  .page::before {
     content: '';
     position: absolute;
-    top: -7px; left: -7px; right: -7px; bottom: -7px;
-    border: 2px solid #9b7a4f;
+    top: 5px; left: 5px; right: 5px; bottom: 5px;
+    border: 1.5px solid #9b7a4f;
     pointer-events: none;
+    z-index: 0;
   }
-  .border-frame::after {
+  .page::after {
     content: '';
     position: absolute;
-    top: 3px; left: 3px; right: 3px; bottom: 3px;
-    border: 1px solid rgba(107,58,31,0.3);
+    top: 9px; left: 9px; right: 9px; bottom: 9px;
+    border: 0.5px solid rgba(107,58,31,0.2);
     pointer-events: none;
+    z-index: 0;
   }
-  .frame-inner {
-    border: 1px solid #9b7a4f;
-    padding: 12px 14px;
-    position: relative;
+  .page > * { position: relative; z-index: 1; }
+  .corner { position: absolute; color: #6b3a1f; font-size: 14pt; opacity: 0.5; line-height: 1; z-index: 1; }
+  .corner-tl { top: 12px; left: 14px; }
+  .corner-tr { top: 12px; right: 14px; }
+  .corner-bl { bottom: 12px; left: 14px; }
+  .corner-br { bottom: 12px; right: 14px; }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Rye', serif;
+    font-size: 8pt;
+    color: #6b3a1f;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 2px solid #6b3a1f;
+    padding-bottom: 4px;
+    margin-bottom: 10px;
   }
-  .corner { position: absolute; color: #6b3a1f; font-size: 14pt; opacity: 0.5; line-height: 1; }
-  .corner-tl { top: 2px; left: 6px; }
-  .corner-tr { top: 2px; right: 6px; }
-  .corner-bl { bottom: 2px; left: 6px; }
-  .corner-br { bottom: 2px; right: 6px; }
+  .page-header .pg-name { font-size: 10pt; letter-spacing: 3px; }
+  .page-header .pg-label { font-size: 7pt; color: #9b7a4f; letter-spacing: 1px; }
   .title {
     text-align: center;
     font-family: 'Rye', serif;
@@ -2809,7 +2872,7 @@ ${data.notes ? `
   }
 </style></head><body>
 
-<div class="border-frame"><div class="frame-inner">
+<div class="page">
   <span class="corner corner-tl">\u2726</span><span class="corner corner-tr">\u2726</span>
   <span class="corner corner-bl">\u2726</span><span class="corner corner-br">\u2726</span>
   <div class="title">Frontier Record</div>
@@ -2858,6 +2921,31 @@ ${data.notes ? `
         <div class="wound-track"><span class="wound-label">Wounds</span><div class="wound-boxes"><div class="wound-box"></div><div class="wound-box"></div><div class="wound-box"></div></div><span style="font-size:7pt; color:#7a5c3a; margin-left:4px;">Incap.</span></div>
         <div class="wound-track"><span class="wound-label">Fatigue</span><div class="wound-boxes"><div class="wound-box"></div><div class="wound-box"></div></div><span style="font-size:7pt; color:#7a5c3a; margin-left:4px;">Incap.</span></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-header"><span class="pg-name">${esc(data.name)}</span><span class="pg-label">Page 2 \u2014 Continued</span></div>
+
+  <div class="section">
+    <div class="sec-title">Arcane Powers</div>
+    <table>
+      <tr><th style="width:4%;">#</th><th style="width:24%;">Power</th><th style="width:22%;">Trapping</th><th style="width:8%;">PP</th><th style="width:14%;">Range</th><th style="width:28%;">Notes</th></tr>
+      <tr><td>1</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>2</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>3</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>4</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>5</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>6</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>7</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>8</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>9</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>10</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    </table>
+    <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:7.5pt; color:#7a5c3a;">
+      <span><strong>Power Points:</strong> ___ / ___</span>
+      <span><strong>Arcane Background:</strong> ________________________</span>
     </div>
   </div>
 
@@ -2925,7 +3013,7 @@ ${data.notes ? `
   `}
 
   <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
-</div></div>
+</div>
 </body></html>`;
   },
 
@@ -2951,23 +3039,34 @@ ${data.notes ? `
       radial-gradient(circle at 15% 25%, rgba(90,70,35,0.06) 0%, transparent 20%),
       linear-gradient(160deg, #d4c5a0 0%, #c8b890 30%, #d0c198 60%, #c4b488 100%);
     color: #1a1209;
-    padding: 0.3in;
+    padding: 0;
     font-size: 9.5pt;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .dossier {
+  .page {
     background:
       radial-gradient(circle at 75% 15%, rgba(80,60,30,0.08) 0%, transparent 30%),
       radial-gradient(circle at 20% 80%, rgba(90,70,35,0.06) 0%, transparent 25%),
       linear-gradient(135deg, #c9b88a 0%, #b8a678 35%, #c2b08a 65%, #bca880 100%);
     border: 2px solid #3d2b1a;
-    padding: 12px;
+    padding: 0.3in 0.35in;
     position: relative;
+    page-break-after: always;
+    min-height: 9.2in;
     box-shadow: 2px 3px 12px rgba(0,0,0,0.15), inset 0 0 30px rgba(61,43,26,0.05);
   }
-  .dossier::before {
-    content: 'CLASSIFIED';
+  .page:last-child { page-break-after: auto; }
+  .page::after {
+    content: '';
+    position: absolute;
+    top: 8px; left: 8px; right: 8px; bottom: 8px;
+    border: 1px dashed rgba(61,43,26,0.15);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .page > * { position: relative; z-index: 1; }
+  .watermark {
     position: absolute;
     top: 40%;
     left: 50%;
@@ -2979,13 +3078,7 @@ ${data.notes ? `
     letter-spacing: 12px;
     pointer-events: none;
     white-space: nowrap;
-  }
-  .dossier::after {
-    content: '';
-    position: absolute;
-    top: 8px; left: 8px; right: 8px; bottom: 8px;
-    border: 1px dashed rgba(61,43,26,0.15);
-    pointer-events: none;
+    z-index: 0;
   }
   .stamp {
     position: absolute;
@@ -3001,7 +3094,24 @@ ${data.notes ? `
     letter-spacing: 3px;
     transform: rotate(8deg);
     pointer-events: none;
+    z-index: 1;
   }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Oswald', sans-serif;
+    font-size: 8pt;
+    font-weight: 600;
+    color: #3d2b1a;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 2px solid #3d2b1a;
+    padding-bottom: 4px;
+    margin-bottom: 10px;
+  }
+  .page-header .pg-name { font-size: 10pt; letter-spacing: 3px; }
+  .page-header .pg-label { font-size: 7pt; color: #6b5a3a; letter-spacing: 1px; }
   .d-title {
     font-family: 'Oswald', sans-serif;
     font-size: 20pt;
@@ -3193,7 +3303,8 @@ ${data.notes ? `
   }
 </style></head><body>
 
-<div class="dossier">
+<div class="page">
+  <div class="watermark">CLASSIFIED</div>
   <span class="stamp">File Active</span>
   <div class="d-title">Marshal's Dossier</div>
   <div class="d-sub">${esc(data.settingName)} \u2022 Savage Worlds</div>
@@ -3254,6 +3365,32 @@ ${data.notes ? `
           <div class="curr-item"><span class="curr-label">Remaining:</span><span class="curr-val">$${data.funds.remaining}</span></div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="watermark">CLASSIFIED</div>
+  <div class="page-header"><span class="pg-name">${esc(data.name)}</span><span class="pg-label">Page 2 \u2014 Continued</span></div>
+
+  <div class="section">
+    <div class="sec-head">Powers</div>
+    <table>
+      <tr><th style="width:4%;">#</th><th style="width:24%;">Power</th><th style="width:22%;">Trapping</th><th style="width:8%;">PP</th><th style="width:14%;">Range</th><th style="width:28%;">Notes</th></tr>
+      <tr><td>1</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>2</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>3</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>4</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>5</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>6</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>7</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>8</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>9</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>10</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    </table>
+    <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:7.5pt; color:#6b5a3a;">
+      <span><strong>Power Points:</strong> ___ / ___</span>
+      <span><strong>Arcane Background:</strong> ________________________</span>
     </div>
   </div>
 
