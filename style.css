@@ -1964,3 +1964,92 @@ select:focus {
 .lang-slot-count .full {
   color: var(--danger);
 }
+
+/* ============================================================
+   STEP VALIDATION TOAST
+   ============================================================ */
+
+.validation-toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-120%);
+  z-index: 10000;
+  background: #1a1208;
+  border: 2px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  max-width: 480px;
+  width: calc(100% - 2rem);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 12px rgba(183, 65, 51, 0.25);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.validation-toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+.validation-toast-icon {
+  font-size: 1.3rem;
+  color: var(--danger);
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.validation-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.validation-toast-body strong {
+  display: block;
+  color: var(--danger);
+  font-size: 0.88rem;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.validation-toast-body ul {
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  color: var(--text);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.validation-toast-body li {
+  margin-bottom: 2px;
+}
+
+.validation-toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.validation-toast-close:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+@media (max-width: 600px) {
+  .validation-toast {
+    top: 0.5rem;
+    max-width: calc(100% - 1rem);
+    padding: 0.75rem 0.9rem;
+  }
+  .validation-toast-body strong { font-size: 0.8rem; }
+  .validation-toast-body ul { font-size: 0.78rem; }
+}

@@ -202,7 +202,130 @@ const app = {
     if (overlay) overlay.classList.toggle('open');
   },
 
+  // ----------------------------------------------------------
+  // STEP VALIDATION — blocks forward navigation until complete
+  // ----------------------------------------------------------
+  validateStep(stepIndex) {
+    const step = STEPS[stepIndex];
+    if (!step) return { valid: true, errors: [] };
+    const c = this.character;
+    const errors = [];
+
+    switch (step.id) {
+      case 'setting':
+        // No validation — player picks setting freely
+        break;
+
+      case 'bonusRules':
+        // Optional — no validation needed
+        break;
+
+      case 'concept':
+        if (!c.name || !c.name.trim()) errors.push('Enter a character name');
+        if (!c.concept || !c.concept.trim()) errors.push('Enter a character concept');
+        break;
+
+      case 'race':
+        if (!c.race) errors.push('Select an ancestry');
+        break;
+
+      case 'attributes': {
+        const attrPts = this.getAttributePoints();
+        if (attrPts.remaining > 0) errors.push(`Spend all attribute points (${attrPts.remaining} remaining)`);
+        if (attrPts.remaining < 0) errors.push(`Over attribute budget by ${Math.abs(attrPts.remaining)} point(s)`);
+        break;
+      }
+
+      case 'skills': {
+        const skillPts = this.getSkillPoints();
+        if (skillPts.remaining > 0) errors.push(`Spend all skill points (${skillPts.remaining} remaining)`);
+        if (skillPts.remaining < 0) errors.push(`Over skill budget by ${Math.abs(skillPts.remaining)} point(s)`);
+        // Polyglot Frontier language slots
+        if (c.bonusRules.includes('polyglotFrontier')) {
+          const maxLangs = this.getLanguageSlots();
+          if (c.languages.length < maxLangs) errors.push(`Select ${maxLangs - c.languages.length} more language(s) (${c.languages.length}/${maxLangs})`);
+        }
+        break;
+      }
+
+      case 'hindrances': {
+        const hp = this.getHindrancePoints();
+        if (hp.remaining > 0) errors.push(`Allocate all hindrance points (${hp.remaining} unspent)`);
+        break;
+      }
+
+      case 'edges': {
+        const eb = this.getEdgeBudget();
+        if (eb.remaining < 0) errors.push(`Too many edges selected (${Math.abs(eb.remaining)} over budget)`);
+        if (eb.remaining > 0) errors.push(`Select ${eb.remaining} more edge(s) — don't leave free edges on the table!`);
+        break;
+      }
+
+      case 'gear': {
+        const funds = this.getRemainingFunds();
+        if (funds < 0) errors.push(`Over budget by $${Math.abs(funds)} — remove some gear`);
+        break;
+      }
+
+      case 'summary':
+        // Review step — always valid
+        break;
+    }
+
+    return { valid: errors.length === 0, errors };
+  },
+
+  showValidationErrors(errors) {
+    // Remove any existing toast
+    const existing = document.getElementById('validationToast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'validationToast';
+    toast.className = 'validation-toast';
+    toast.innerHTML = `
+      <div class="validation-toast-icon">⚠</div>
+      <div class="validation-toast-body">
+        <strong>Complete this step first</strong>
+        <ul>${errors.map(e => `<li>${e}</li>`).join('')}</ul>
+      </div>
+      <button class="validation-toast-close" onclick="this.parentElement.remove()">✕</button>
+    `;
+    document.body.appendChild(toast);
+
+    // Force reflow then trigger slide-in animation
+    toast.offsetHeight;
+    toast.classList.add('show');
+
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => {
+      if (toast.parentElement) {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 350);
+      }
+    }, 8000);
+  },
+
   goToStep(i) {
+    // Allow backward navigation freely; validate on forward moves
+    if (i > this.currentStep) {
+      // Validate every step from current up to (but not including) target
+      for (let s = this.currentStep; s < i; s++) {
+        const result = this.validateStep(s);
+        if (!result.valid) {
+          // Jump to the failing step so the player can see what's wrong
+          if (s !== this.currentStep) {
+            this.currentStep = s;
+            this.renderNav();
+            this.renderContent();
+            this.renderSummary();
+            document.getElementById('mainContent').scrollTop = 0;
+          }
+          this.showValidationErrors(result.errors);
+          return;
+        }
+      }
+    }
     this.currentStep = i;
     this.renderNav();
     this.renderContent();
