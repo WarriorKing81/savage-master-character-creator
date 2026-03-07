@@ -109,6 +109,25 @@ const app = {
         <span>${s.label}</span>
       </li>
     `).join('');
+    this.renderMobileNav();
+  },
+
+  renderMobileNav() {
+    const mobileNav = document.getElementById('mobileNav');
+    if (!mobileNav) return;
+    mobileNav.innerHTML = STEPS.map((s, i) => `
+      <button class="mobile-nav-btn ${i === this.currentStep ? 'active' : ''}" onclick="app.goToStep(${i})">
+        <span class="mobile-nav-icon">${s.icon}</span>
+        <span class="mobile-nav-label">${s.label}</span>
+      </button>
+    `).join('');
+  },
+
+  toggleMobileSummary() {
+    const panel = document.getElementById('summaryPanel');
+    const overlay = document.getElementById('summaryOverlay');
+    if (panel) panel.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('open');
   },
 
   goToStep(i) {
@@ -971,7 +990,7 @@ const app = {
     if (this.character.gear.length > 0) {
       html += `<div class="card" style="margin-bottom:1.5rem;">
         <div class="card-header"><span class="card-title">Owned Equipment</span></div>
-        <table class="gear-table">
+        <div class="table-scroll"><table class="gear-table">
           <thead><tr><th>Item</th><th>Cost</th><th>Qty</th><th></th></tr></thead>
           <tbody>`;
       this.character.gear.forEach((g, i) => {
@@ -988,7 +1007,7 @@ const app = {
           <td><button class="btn btn-danger btn-sm" onclick="app.removeGear(${i})">Drop</button></td>
         </tr>`;
       });
-      html += `</tbody></table></div>`;
+      html += `</tbody></table></div></div>`;
     }
 
     // Gear tabs
@@ -997,7 +1016,7 @@ const app = {
     </div>`;
 
     const items = this.getGearCategories()[tab] || [];
-    html += `<table class="gear-table"><thead><tr>`;
+    html += `<div class="table-scroll"><table class="gear-table"><thead><tr>`;
     if (tab === 'armor') {
       html += '<th>Name</th><th>Armor</th><th>Coverage</th><th>Cost</th><th>Weight</th><th></th>';
     } else if (tab === 'shields') {
@@ -1029,7 +1048,7 @@ const app = {
       html += '</tr>';
     });
 
-    html += `</tbody></table>${this.navButtons()}`;
+    html += `</tbody></table></div>${this.navButtons()}`;
     return html;
   },
 
@@ -1162,6 +1181,9 @@ const app = {
   renderSummary() {
     const panel = document.getElementById('summaryPanel');
     const c = this.character;
+    // Update mobile header title
+    const mobileTitle = document.getElementById('mobileTitle');
+    if (mobileTitle) mobileTitle.textContent = c.name || 'Savage Master';
     const race = this.getSelectedRace();
     const stats = this.getDerivedStats();
 

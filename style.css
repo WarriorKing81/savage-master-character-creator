@@ -1020,31 +1020,148 @@ select:focus {
   background: var(--accent-dim);
 }
 
-/* Responsive */
-@media (max-width: 1100px) {
-  .summary-panel {
-    display: none;
-  }
-  .content::before {
-    right: 0;
-  }
+/* ============================================================
+   MOBILE & TABLET ELEMENTS (hidden on desktop by default)
+   ============================================================ */
+
+/* Mobile top header bar */
+.mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: linear-gradient(180deg, #2a2318 0%, #231e16 100%);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+  align-items: center;
+  padding: 0 0.75rem;
+  gap: 0.6rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+.mobile-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: 50% 48%;
+  border: 2px solid var(--accent-dim);
+}
+.mobile-title {
+  flex: 1;
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  color: var(--accent);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mobile-summary-btn {
+  padding: 0.3rem 0.7rem;
+  border-radius: 15px;
+  border: 1px solid var(--accent-dim);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.mobile-summary-btn:hover {
+  background: var(--accent-glow);
 }
 
-@media (max-width: 768px) {
-  .sidebar {
-    width: 60px;
-  }
-  .sidebar h1 { font-size: 0; padding: 0.5rem; border: none; }
-  .sidebar h1::after { content: 'SM'; font-size: 1rem; color: var(--accent); font-family: var(--font-heading); }
-  .sidebar h1 span { display: none; }
-  .sidebar-logo { padding: 0.5rem; }
-  .logo-img { width: 48px; height: 48px; transform: none; }
-  .content::before {
-    left: 60px;
-  }
-  .steps li { padding: 0.6rem; justify-content: center; }
-  .steps li span:not(.step-num) { display: none; }
-  .content { padding: 1rem; }
+/* Mobile bottom navigation bar */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(0deg, #1a1510 0%, #231e16 100%);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.4);
+}
+.mobile-nav::-webkit-scrollbar { display: none; }
+
+.mobile-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-width: 56px;
+  height: 100%;
+  padding: 0.3rem 0.4rem;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.mobile-nav-btn:hover {
+  color: var(--text);
+}
+.mobile-nav-btn.active {
+  color: var(--accent);
+}
+.mobile-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  font-size: 0.72rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  transition: all 0.15s;
+}
+.mobile-nav-btn.active .mobile-nav-icon {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg-dark);
+}
+.mobile-nav-label {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-family: var(--font-heading);
+  white-space: nowrap;
+}
+
+/* Summary overlay (dark backdrop for drawer) */
+.summary-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 149;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.summary-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Table scroll wrapper */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Setting Selection */
@@ -1196,6 +1313,199 @@ select:focus {
   box-shadow: 0 4px 16px rgba(212, 17, 30, 0.15);
 }
 .export-btn--roll20 .export-icon { color: #d4111e; }
+
+/* ============================================================
+   RESPONSIVE OVERRIDES (must come after all base styles)
+   ============================================================ */
+
+/* Tablet: hide summary panel */
+@media (max-width: 1100px) {
+  .summary-panel {
+    display: none;
+  }
+  .content::before {
+    right: 0;
+  }
+}
+
+/* Mobile: ≤768px — full mobile layout */
+@media (max-width: 768px) {
+  /* Hide desktop sidebar */
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Show mobile header & bottom nav */
+  .mobile-header {
+    display: flex;
+  }
+  .mobile-nav {
+    display: flex;
+  }
+
+  /* Main content takes full width with header/nav clearance */
+  .app {
+    flex-direction: column;
+  }
+  .content {
+    padding: 58px 0.75rem 68px;
+    max-height: none;
+    min-height: 100vh;
+  }
+  .content::before {
+    left: 0;
+    right: 0;
+  }
+
+  /* Summary panel becomes slide-up drawer */
+  .summary-panel {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 70vh;
+    height: auto;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    z-index: 150;
+    border-left: none;
+    border-top: 1px solid var(--accent-dim);
+    border-radius: 16px 16px 0 0;
+    padding: 1.2rem 1rem 5rem;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.5);
+  }
+  .summary-panel.open {
+    transform: translateY(0);
+  }
+  .summary-overlay {
+    display: block;
+    pointer-events: none;
+  }
+  .summary-overlay.open {
+    pointer-events: auto;
+  }
+
+  /* Drawer handle indicator */
+  .summary-panel::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 1rem;
+  }
+
+  /* Setting cards stack single column */
+  .setting-grid {
+    grid-template-columns: 1fr;
+  }
+  .setting-banner {
+    height: 120px;
+  }
+  .setting-card-body {
+    padding: 0.8rem 1rem 1rem;
+  }
+
+  /* Trait rows tighter */
+  .trait-row {
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+  .trait-cost {
+    min-width: 45px;
+    font-size: 0.72rem;
+  }
+
+  /* Die buttons smaller */
+  .die-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.9rem;
+  }
+  .die-icon {
+    width: 24px;
+    height: 24px;
+  }
+  .die-value {
+    min-width: 36px;
+    font-size: 0.85rem;
+  }
+
+  /* Tabs wrap on small screens */
+  .tabs {
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 0.4rem 0.65rem;
+    font-size: 0.65rem;
+  }
+
+  /* Heritage choices stack */
+  .heritage-choices {
+    flex-direction: column;
+  }
+
+  /* Export grid single column */
+  .export-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Scrollable areas shorter on mobile */
+  .scrollable {
+    max-height: 50vh;
+  }
+
+  /* Cards tighter padding */
+  .card {
+    padding: 0.8rem;
+  }
+
+  /* Point tracker wrap nicely */
+  .point-tracker {
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    justify-content: center;
+  }
+
+  /* Step content headings */
+  .step-content h2 {
+    font-size: 1.2rem;
+  }
+  .step-content .step-desc {
+    font-size: 0.88rem;
+  }
+
+  /* Filter buttons wrap tighter */
+  .filters {
+    gap: 0.35rem;
+  }
+  .filter-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  /* Nav buttons */
+  .nav-buttons {
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+  }
+
+  /* Derived stats boxes */
+  .derived-stat-box .ds-value {
+    font-size: 1.3rem;
+  }
+
+  /* Qty controls */
+  .qty-controls button {
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+  }
+}
 
 /* Print styles */
 @media print {

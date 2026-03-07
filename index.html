@@ -8,6 +8,13 @@
 </head>
 <body>
   <div class="app">
+    <!-- Mobile Header (hidden on desktop) -->
+    <header class="mobile-header" id="mobileHeader">
+      <img src="logo.png" alt="" class="mobile-logo">
+      <span class="mobile-title" id="mobileTitle">Savage Master</span>
+      <button class="mobile-summary-btn" id="summaryToggle" onclick="app.toggleMobileSummary()">Summary</button>
+    </header>
+
     <!-- Sidebar Navigation -->
     <nav class="sidebar">
       <div class="sidebar-logo">
@@ -33,6 +40,12 @@
 
     <!-- Summary Panel -->
     <aside class="summary-panel" id="summaryPanel"></aside>
+
+    <!-- Mobile Bottom Nav (hidden on desktop) -->
+    <nav class="mobile-nav" id="mobileNav"></nav>
+
+    <!-- Summary Overlay (for mobile drawer) -->
+    <div class="summary-overlay" id="summaryOverlay" onclick="app.toggleMobileSummary()"></div>
   </div>
 
   <script src="data.js"></script>
