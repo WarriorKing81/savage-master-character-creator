@@ -5,14 +5,15 @@
 const STEPS = [
   { id: 'setting', label: 'Setting', icon: '\u2606' },
   { id: 'bonusRules', label: 'Bonus Rules', icon: '\u2605' },
-  { id: 'concept', label: 'Concept', icon: '1' },
-  { id: 'race', label: 'Ancestry', icon: '2' },
-  { id: 'attributes', label: 'Attributes', icon: '3' },
-  { id: 'skills', label: 'Skills', icon: '4' },
-  { id: 'hindrances', label: 'Hindrances', icon: '5' },
-  { id: 'edges', label: 'Edges', icon: '6' },
-  { id: 'gear', label: 'Gear', icon: '7' },
-  { id: 'summary', label: 'Review', icon: '8' },
+  { id: 'race', label: 'Ancestry', icon: '1' },
+  { id: 'hindrances', label: 'Hindrances', icon: '2' },
+  { id: 'edges', label: 'Edges', icon: '3' },
+  { id: 'attributes', label: 'Attributes', icon: '4' },
+  { id: 'skills', label: 'Skills', icon: '5' },
+  { id: 'concept', label: 'Concept', icon: '6' },
+  { id: 'powers', label: 'Powers', icon: '7' },
+  { id: 'gear', label: 'Gear', icon: '8' },
+  { id: 'summary', label: 'Review', icon: '9' },
 ];
 
 const DIE_LABELS = { 0: '—', 4: 'd4', 6: 'd6', 8: 'd8', 10: 'd10', 12: 'd12' };
@@ -233,6 +234,18 @@ const app = {
         const attrPts = this.getAttributePoints();
         if (attrPts.remaining > 0) errors.push(`Spend all attribute points (${attrPts.remaining} remaining)`);
         if (attrPts.remaining < 0) errors.push(`Over attribute budget by ${Math.abs(attrPts.remaining)} point(s)`);
+        // Validate edge attribute requirements are met
+        c.edges.forEach(eId => {
+          const edge = this.getEdges().find(e => e.id === eId);
+          if (!edge) return;
+          edge.requirements.filter(r => r.type === 'attribute').forEach(req => {
+            const attrObj = SWADE.ATTRIBUTES.find(a => a.id === req.attribute);
+            const attrName = attrObj ? attrObj.name : req.attribute;
+            if (c.attributes[req.attribute] < req.minimum) {
+              errors.push(`${edge.name} requires ${attrName} d${req.minimum}`);
+            }
+          });
+        });
         break;
       }
 
@@ -245,6 +258,28 @@ const app = {
           const maxLangs = this.getLanguageSlots();
           if (c.languages.length < maxLangs) errors.push(`Select ${maxLangs - c.languages.length} more language(s) (${c.languages.length}/${maxLangs})`);
         }
+        // Validate edge skill requirements are met
+        c.edges.forEach(eId => {
+          const edge = this.getEdges().find(e => e.id === eId);
+          if (!edge) return;
+          edge.requirements.filter(r => r.type === 'skill' || r.type === 'skill_any').forEach(req => {
+            if (req.type === 'skill') {
+              const sk = SWADE.SKILLS.find(s => s.id === req.skill);
+              const skName = sk ? sk.name : req.skill;
+              if ((c.skills[req.skill] || 0) < req.minimum) {
+                errors.push(`${edge.name} requires ${skName} d${req.minimum}`);
+              }
+            } else if (req.type === 'skill_any') {
+              if (!req.skills.some(s => (c.skills[s] || 0) >= req.minimum)) {
+                const skNames = req.skills.map(s => {
+                  const sk = SWADE.SKILLS.find(sk2 => sk2.id === s);
+                  return sk ? sk.name : s;
+                }).join(' or ');
+                errors.push(`${edge.name} requires ${skNames} d${req.minimum}`);
+              }
+            }
+          });
+        });
         break;
       }
 
@@ -260,6 +295,10 @@ const app = {
         if (eb.remaining > 0) errors.push(`Select ${eb.remaining} more edge(s) — don't leave free edges on the table!`);
         break;
       }
+
+      case 'powers':
+        // Placeholder step — no validation needed
+        break;
 
       case 'gear': {
         const funds = this.getRemainingFunds();
@@ -548,18 +587,18 @@ const app = {
   // ----------------------------------------------------------
   // EDGE REQUIREMENT CHECK
   // ----------------------------------------------------------
-  meetsEdgeRequirements(edge) {
+  meetsEdgeRequirements(edge, { ignoreStats = false } = {}) {
     const c = this.character;
     for (const req of edge.requirements) {
       switch (req.type) {
         case 'attribute':
-          if (c.attributes[req.attribute] < req.minimum) return false;
+          if (!ignoreStats && c.attributes[req.attribute] < req.minimum) return false;
           break;
         case 'skill':
-          if ((c.skills[req.skill] || 0) < req.minimum) return false;
+          if (!ignoreStats && (c.skills[req.skill] || 0) < req.minimum) return false;
           break;
         case 'skill_any':
-          if (!req.skills.some(s => (c.skills[s] || 0) >= req.minimum)) return false;
+          if (!ignoreStats && !req.skills.some(s => (c.skills[s] || 0) >= req.minimum)) return false;
           break;
         case 'edge':
           if (!c.edges.includes(req.edge)) return false;
@@ -856,7 +895,54 @@ const app = {
     `;
   },
 
-  // Step 2: Race
+  // Step 7: Powers (Placeholder)
+  render_powers() {
+    const allEdges = this.getEdges();
+    const arcaneEdges = this.character.edges
+      .map(eId => allEdges.find(e => e.id === eId))
+      .filter(e => e && (e.grantsArcane || e.category === 'Arcane Background'));
+
+    let arcaneInfo = '';
+    if (arcaneEdges.length > 0) {
+      arcaneInfo = `
+        <div class="card selected" style="margin-bottom:1rem;">
+          <div class="card-header">
+            <span class="card-title">Your Arcane Background${arcaneEdges.length > 1 ? 's' : ''}</span>
+            <span class="card-badge" style="background:var(--accent); color:var(--bg-dark);">Active</span>
+          </div>
+          ${arcaneEdges.map(e => `
+            <p class="card-desc"><strong>${e.name}</strong> \u2014 ${this.escHtml(e.summary || e.description)}</p>
+          `).join('')}
+        </div>
+        <div class="tip-box" style="margin-top:1rem;">
+          <div class="tip-header">
+            <span class="tip-icon">&#x270D;</span>
+            <span class="tip-label">Fill in Powers on your printed sheet</span>
+          </div>
+          <p class="tip-text">The printed character sheet includes 10 blank Power rows with columns for Power Name, Trapping, PP Cost, Range, and Notes. Fill them in after printing based on your Arcane Background.</p>
+        </div>
+      `;
+    } else {
+      arcaneInfo = `
+        <div class="tip-box" style="margin-top:1rem;">
+          <div class="tip-header">
+            <span class="tip-icon">&#x2139;</span>
+            <span class="tip-label">No Arcane Background</span>
+          </div>
+          <p class="tip-text">You don't currently have an Arcane Background edge. You can skip this step. The printed character sheet still includes blank Power rows if you gain one later through Advances.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <h2>Powers</h2>
+      <p class="step-desc">If your character has an Arcane Background, this is where you'll note your Powers and Trappings.</p>
+      ${arcaneInfo}
+      ${this.navButtons()}
+    `;
+  },
+
+  // Ancestry
   render_race() {
     const selected = this.character.race;
     const settingData = this.getSettingData();
@@ -1287,7 +1373,7 @@ const app = {
 
     let html = `
       <h2>Edges</h2>
-      <p class="step-desc">Select your character's Edges. You have ${budget.total} Edge slot${budget.total !== 1 ? 's' : ''} available. Only Novice-rank Edges are available at character creation.</p>
+      <p class="step-desc">Select your character's Edges. You have ${budget.total} Edge slot${budget.total !== 1 ? 's' : ''} available. Only Novice-rank Edges are available at character creation. Stat requirements are shown but not enforced here \u2014 you'll set Attributes and Skills next to meet them.</p>
       <div class="point-tracker">
         <div class="pt-item">
           <span class="pt-label">Edges Available</span>
@@ -1315,9 +1401,10 @@ const app = {
 
     filteredEdges.forEach(edge => {
       const isSel = this.character.edges.includes(edge.id);
-      const meets = this.meetsEdgeRequirements(edge);
+      const meetsStructural = this.meetsEdgeRequirements(edge, { ignoreStats: true });
+      const meetsFull = this.meetsEdgeRequirements(edge);
       const isBonusEdge = (edge.id === 'linguist' && this.character.bonusRules.includes('polyglotFrontier'));
-      const canTake = isSel || (meets && budget.remaining > 0);
+      const canTake = isSel || (meetsStructural && budget.remaining > 0);
       const reqStr = this.formatRequirements(edge);
 
       html += `
@@ -1328,7 +1415,7 @@ const app = {
             ${isBonusEdge ? '<span class="card-badge" style="background:var(--success); color:var(--bg-dark);">Polyglot Frontier \u2014 Free</span>' : `<span class="card-badge">${edge.category}</span>`}
           </div>
           <p class="card-desc">${edge.description}</p>
-          ${reqStr ? `<p class="card-reqs ${!meets ? 'unmet' : ''}">Requires: ${reqStr}</p>` : ''}
+          ${reqStr ? `<p class="card-reqs ${!meetsFull ? 'unmet' : ''}">Requires: ${reqStr}</p>` : ''}
         </div>
       `;
     });
@@ -1345,7 +1432,7 @@ const app = {
       this.character.edges.splice(idx, 1);
     } else {
       const edge = this.getEdges().find(e => e.id === id);
-      if (!edge || !this.meetsEdgeRequirements(edge)) return;
+      if (!edge || !this.meetsEdgeRequirements(edge, { ignoreStats: true })) return;
       if (this.getEdgeBudget().remaining <= 0) return;
       this.character.edges.push(id);
     }
