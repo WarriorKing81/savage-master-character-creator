@@ -1202,13 +1202,22 @@ const app = {
             <span class="export-label">Roll20</span>
             <span class="export-desc">Character sheet data</span>
           </button>
-          <button class="btn export-btn" onclick="window.print()">
+          <button class="btn export-btn" onclick="app.showPrintModal()">
             <span class="export-icon">\u2399</span>
             <span class="export-label">Print</span>
-            <span class="export-desc">Print character sheet</span>
+            <span class="export-desc">Choose sheet style</span>
           </button>
         </div>
       </div>
+
+      <div class="tip-box" style="margin-top:1.2rem;">
+        <div class="tip-header">
+          <span class="tip-icon">&#x1F4C1;</span>
+          <span class="tip-label">Organization Tip</span>
+        </div>
+        <p class="tip-text">Create a folder on your computer for your characters (e.g. <strong>Savage Worlds Characters / Hank Morgan /</strong>) and save exported files and printed sheets there for future gaming sessions.</p>
+      </div>
+
       ${this.navButtons(true)}
     `;
     return html;
@@ -1694,6 +1703,982 @@ const app = {
     if (!confirm('Start a new character? All current progress will be lost.')) return;
     this.character = createDefaultCharacter();
     this.goToStep(0);
+  },
+
+  // ----------------------------------------------------------
+  // PRINTABLE CHARACTER SHEET SYSTEM
+  // ----------------------------------------------------------
+  _buildCharacterData() {
+    const c = this.character;
+    const race = this.getSelectedRace();
+    const stats = this.getDerivedStats();
+    const settingData = this.getSettingData();
+
+    // Build attributes array
+    const attributes = SWADE.ATTRIBUTES.map(a => ({
+      name: a.name,
+      short: a.name.substring(0, 3).toUpperCase(),
+      die: c.attributes[a.id] || 4
+    }));
+
+    // Build skills array grouped by linked attribute
+    const skills = [];
+    const allSkills = settingData ? [...SWADE.SKILLS, ...(settingData.SKILLS || [])] : SWADE.SKILLS;
+    allSkills.forEach(s => {
+      const die = c.skills[s.id] || 0;
+      if (die > 0) {
+        const linkedAttr = SWADE.ATTRIBUTES.find(a => a.id === s.attribute);
+        skills.push({
+          name: s.name,
+          die: die,
+          attribute: linkedAttr ? linkedAttr.name : s.attribute
+        });
+      }
+    });
+    skills.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Build hindrances array
+    const hindrances = c.hindrances.map(hId => {
+      const h = this.getHindrances().find(x => x.id === hId);
+      return h ? { name: h.name, type: h.type } : null;
+    }).filter(Boolean);
+
+    // Build edges array
+    const edges = c.edges.map(eId => {
+      const e = this.getEdges().find(x => x.id === eId);
+      return e ? { name: e.name, summary: e.summary || '' } : null;
+    }).filter(Boolean);
+
+    // Categorize gear
+    const weapons = [];
+    const armor = [];
+    const mundane = [];
+    c.gear.forEach(g => {
+      if (g.damage || g.range || g.ap !== undefined || g.rof) {
+        weapons.push(g);
+      } else if (g.armor) {
+        armor.push(g);
+      } else {
+        mundane.push(g);
+      }
+    });
+
+    return {
+      name: c.name || 'Unnamed',
+      concept: c.concept || '',
+      settingName: settingData ? settingData.name : 'Core SWADE',
+      raceName: race ? race.name : 'Human',
+      attributes,
+      skills,
+      hindrances,
+      edges,
+      weapons,
+      armor,
+      mundane,
+      allGear: c.gear,
+      stats,
+      funds: {
+        starting: this.getStartingFunds(),
+        remaining: this.getRemainingFunds()
+      },
+      notes: c.notes || ''
+    };
+  },
+
+  showPrintModal() {
+    // Remove existing modal if any
+    this.closePrintModal();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'print-modal-overlay';
+    overlay.id = 'printModalOverlay';
+    overlay.onclick = (e) => { if (e.target === overlay) this.closePrintModal(); };
+
+    overlay.innerHTML = `
+      <div class="print-modal">
+        <button class="print-modal-close" onclick="app.closePrintModal()" title="Close">&times;</button>
+        <h2>Choose Sheet Style</h2>
+        <p style="color:var(--text-dim); font-size:0.85rem; margin-bottom:1.2rem;">Select a character sheet layout to print.</p>
+        <div class="print-style-grid">
+          <div class="print-style-card" onclick="app.printSheet(1)">
+            <div class="print-style-icon">\u{1F4DC}</div>
+            <h3>Classic Deadlands</h3>
+            <p>Clean parchment layout with organized bordered sections. Two-column grid for attributes, skills, edges and hindrances.</p>
+          </div>
+          <div class="print-style-card" onclick="app.printSheet(2)">
+            <div class="print-style-icon">\u{1F3A8}</div>
+            <h3>Frontier Record</h3>
+            <p>Ornate Western style with skills grouped by attribute, wound tracker, and detailed powers table.</p>
+          </div>
+          <div class="print-style-card" onclick="app.printSheet(3)">
+            <div class="print-style-icon">\u{1F575}</div>
+            <h3>Marshal's Dossier</h3>
+            <p>Dark gritty aesthetic with attribute bar, compact layout, poker chip bennies tracker.</p>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    // Animate in
+    requestAnimationFrame(() => overlay.classList.add('active'));
+  },
+
+  closePrintModal() {
+    const overlay = document.getElementById('printModalOverlay');
+    if (overlay) overlay.remove();
+  },
+
+  printSheet(style) {
+    this.closePrintModal();
+    const data = this._buildCharacterData();
+    let html = '';
+    if (style === 1) html = this._generateSheet1(data);
+    else if (style === 2) html = this._generateSheet2(data);
+    else html = this._generateSheet3(data);
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert('Pop-up blocked! Please allow pop-ups for this site to print.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    // Small delay to let styles render, then trigger print
+    setTimeout(() => win.print(), 400);
+  },
+
+  // ------- STYLE 1: Classic Deadlands -------
+  _generateSheet1(data) {
+    const esc = (s) => this.escHtml(s);
+    return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>${esc(data.name)} - Character Sheet</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @page { size: letter; margin: 0.5in; }
+  body {
+    font-family: 'IM Fell English', 'Georgia', serif;
+    background: #f4e8c1;
+    color: #2a1f0e;
+    padding: 0.4in;
+    font-size: 10pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .sheet-title {
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    font-size: 20pt;
+    font-weight: 700;
+    color: #5c1a0a;
+    border-bottom: 3px double #5c1a0a;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+  }
+  .sheet-subtitle {
+    text-align: center;
+    font-size: 10pt;
+    color: #6b4c2a;
+    margin-bottom: 10px;
+    font-style: italic;
+  }
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    border: 1px solid #8b7355;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    background: rgba(139,115,85,0.08);
+  }
+  .header-row span { font-size: 9pt; }
+  .header-row strong { color: #5c1a0a; font-family: 'Cinzel', serif; font-size: 8pt; text-transform: uppercase; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .section {
+    border: 1px solid #8b7355;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    background: rgba(244,232,193,0.5);
+  }
+  .section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 10pt;
+    font-weight: 700;
+    color: #5c1a0a;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #8b7355;
+    padding-bottom: 3px;
+    margin-bottom: 5px;
+  }
+  .attr-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    border-bottom: 1px dotted #c4a96a;
+  }
+  .attr-row:last-child { border-bottom: none; }
+  .attr-name { font-weight: 700; }
+  .attr-die { color: #5c1a0a; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  th {
+    background: #5c1a0a;
+    color: #f4e8c1;
+    padding: 3px 5px;
+    text-align: left;
+    font-family: 'Cinzel', serif;
+    font-size: 8pt;
+    text-transform: uppercase;
+  }
+  td { padding: 2px 5px; border-bottom: 1px solid #c4a96a; }
+  .derived-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    text-align: center;
+  }
+  .derived-box {
+    border: 1px solid #8b7355;
+    padding: 4px 2px;
+  }
+  .derived-box .label { font-size: 7pt; text-transform: uppercase; font-family: 'Cinzel', serif; color: #6b4c2a; }
+  .derived-box .value { font-size: 14pt; font-weight: 700; color: #5c1a0a; }
+  .notes-area {
+    border: 1px solid #8b7355;
+    min-height: 60px;
+    padding: 6px 8px;
+    font-style: italic;
+    color: #4a3520;
+  }
+  .footer {
+    text-align: center;
+    font-size: 7pt;
+    color: #8b7355;
+    margin-top: 8px;
+    border-top: 1px solid #8b7355;
+    padding-top: 4px;
+  }
+</style></head><body>
+
+<div class="sheet-title">Deadlands</div>
+<div class="sheet-subtitle">${esc(data.settingName)} \u2014 Savage Worlds Character Sheet</div>
+
+<div class="header-row">
+  <span><strong>Name:</strong> ${esc(data.name)}</span>
+  <span><strong>Concept:</strong> ${esc(data.concept)}</span>
+  <span><strong>Race:</strong> ${esc(data.raceName)}</span>
+  <span><strong>Funds:</strong> $${data.funds.remaining}</span>
+</div>
+
+<div class="derived-grid">
+  <div class="derived-box"><div class="label">Pace</div><div class="value">${data.stats.pace}</div></div>
+  <div class="derived-box"><div class="label">Parry</div><div class="value">${data.stats.parry}</div></div>
+  <div class="derived-box"><div class="label">Toughness</div><div class="value">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
+  <div class="derived-box"><div class="label">Size</div><div class="value">${data.stats.size}</div></div>
+  <div class="derived-box"><div class="label">Run</div><div class="value">d${data.stats.runDie}</div></div>
+</div>
+
+<div class="two-col" style="margin-top:8px;">
+  <div>
+    <div class="section">
+      <div class="section-title">Attributes</div>
+      ${data.attributes.map(a => `<div class="attr-row"><span class="attr-name">${a.name}</span><span class="attr-die">d${a.die}</span></div>`).join('')}
+    </div>
+    <div class="section">
+      <div class="section-title">Skills</div>
+      ${data.skills.length > 0 ? data.skills.map(s => `<div class="attr-row"><span class="attr-name">${s.name}</span><span class="attr-die">d${s.die}</span></div>`).join('') : '<div style="color:#8b7355; font-style:italic;">No skills selected</div>'}
+    </div>
+  </div>
+  <div>
+    <div class="section">
+      <div class="section-title">Hindrances</div>
+      ${data.hindrances.length > 0 ? data.hindrances.map(h => `<div class="attr-row"><span>${h.name}</span><span style="font-size:8pt; color:#6b4c2a;">${h.type}</span></div>`).join('') : '<div style="color:#8b7355; font-style:italic;">None</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">Edges</div>
+      ${data.edges.length > 0 ? data.edges.map(e => `<div style="padding:2px 0; border-bottom:1px dotted #c4a96a;"><strong>${e.name}</strong>${e.summary ? ' \u2014 <span style="font-size:8pt; color:#6b4c2a;">' + esc(e.summary) + '</span>' : ''}</div>`).join('') : '<div style="color:#8b7355; font-style:italic;">None</div>'}
+    </div>
+  </div>
+</div>
+
+${data.weapons.length > 0 ? `
+<div class="section">
+  <div class="section-title">Weapons</div>
+  <table>
+    <tr><th>Weapon</th><th>Damage</th><th>Range</th><th>AP</th><th>ROF</th><th>Notes</th></tr>
+    ${data.weapons.map(w => `<tr>
+      <td>${esc(w.name)}</td>
+      <td>${w.damage || '\u2014'}</td>
+      <td>${w.range || '\u2014'}</td>
+      <td>${w.ap || '\u2014'}</td>
+      <td>${w.rof || '\u2014'}</td>
+      <td style="font-size:8pt;">${esc(w.notes || '')}</td>
+    </tr>`).join('')}
+  </table>
+</div>
+` : ''}
+
+${data.armor.length > 0 ? `
+<div class="section">
+  <div class="section-title">Armor</div>
+  <table>
+    <tr><th>Armor</th><th>Armor Value</th><th>Notes</th></tr>
+    ${data.armor.map(a => `<tr>
+      <td>${esc(a.name)}</td>
+      <td>${a.armor || '\u2014'}</td>
+      <td style="font-size:8pt;">${esc(a.notes || '')}</td>
+    </tr>`).join('')}
+  </table>
+</div>
+` : ''}
+
+${data.mundane.length > 0 ? `
+<div class="section">
+  <div class="section-title">Gear &amp; Supplies</div>
+  <div style="display:flex; flex-wrap:wrap; gap:4px 16px;">
+    ${data.mundane.map(g => `<span>${esc(g.name)}${(g.qty || 1) > 1 ? ' x' + g.qty : ''}</span>`).join('')}
+  </div>
+</div>
+` : ''}
+
+${data.notes ? `
+<div class="section">
+  <div class="section-title">Notes</div>
+  <div class="notes-area">${esc(data.notes)}</div>
+</div>
+` : `
+<div class="section">
+  <div class="section-title">Notes</div>
+  <div class="notes-area">&nbsp;</div>
+</div>
+`}
+
+<div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
+</body></html>`;
+  },
+
+  // ------- STYLE 2: Frontier Record -------
+  _generateSheet2(data) {
+    const esc = (s) => this.escHtml(s);
+
+    // Group skills by linked attribute
+    const skillsByAttr = {};
+    data.skills.forEach(s => {
+      if (!skillsByAttr[s.attribute]) skillsByAttr[s.attribute] = [];
+      skillsByAttr[s.attribute].push(s);
+    });
+
+    return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>${esc(data.name)} - Frontier Record</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rye&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @page { size: letter; margin: 0.4in; }
+  body {
+    font-family: 'Lora', 'Georgia', serif;
+    background: #ede0c8;
+    color: #1a1209;
+    padding: 0.3in;
+    font-size: 9.5pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .border-frame {
+    border: 4px double #6b3a1f;
+    padding: 12px;
+    position: relative;
+  }
+  .border-frame::before {
+    content: '';
+    position: absolute;
+    top: 4px; left: 4px; right: 4px; bottom: 4px;
+    border: 1px solid #9b7a4f;
+    pointer-events: none;
+  }
+  .title {
+    text-align: center;
+    font-family: 'Rye', 'Cinzel', serif;
+    font-size: 22pt;
+    color: #6b3a1f;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .subtitle {
+    text-align: center;
+    font-style: italic;
+    color: #7a5c3a;
+    font-size: 9pt;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #6b3a1f;
+    padding-bottom: 6px;
+  }
+  .info-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .info-item {
+    border-bottom: 1px solid #6b3a1f;
+    padding: 2px 0;
+  }
+  .info-label { font-size: 7pt; text-transform: uppercase; color: #7a5c3a; font-weight: 700; font-family: 'Rye', serif; }
+  .info-value { font-size: 10pt; font-weight: 700; }
+  .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .section {
+    border: 1.5px solid #6b3a1f;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    background: rgba(237,224,200,0.5);
+  }
+  .sec-title {
+    font-family: 'Rye', serif;
+    font-size: 9pt;
+    color: #6b3a1f;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-bottom: 1px solid #9b7a4f;
+    padding-bottom: 2px;
+    margin-bottom: 4px;
+  }
+  .attr-block { margin-bottom: 6px; }
+  .attr-header {
+    font-family: 'Rye', serif;
+    font-size: 8pt;
+    color: #fff;
+    background: #6b3a1f;
+    padding: 2px 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .skill-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 1px 6px;
+    border-bottom: 1px dotted #c4a96a;
+    font-size: 9pt;
+  }
+  .skill-die { font-weight: 700; color: #6b3a1f; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  th {
+    background: #6b3a1f;
+    color: #ede0c8;
+    padding: 2px 4px;
+    text-align: left;
+    font-family: 'Rye', serif;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  td { padding: 2px 4px; border-bottom: 1px solid #c4a96a; }
+  .wound-track { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+  .wound-label { font-family: 'Rye', serif; font-size: 7pt; text-transform: uppercase; color: #7a5c3a; min-width: 50px; }
+  .wound-boxes { display: flex; gap: 3px; }
+  .wound-box {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #6b3a1f;
+    background: transparent;
+  }
+  .derived-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .d-box {
+    text-align: center;
+    border: 1.5px solid #6b3a1f;
+    padding: 3px;
+    background: rgba(107,58,31,0.06);
+  }
+  .d-label { font-size: 7pt; text-transform: uppercase; font-family: 'Rye', serif; color: #7a5c3a; }
+  .d-val { font-size: 14pt; font-weight: 700; color: #6b3a1f; }
+  .notes-box {
+    border: 1px solid #9b7a4f;
+    min-height: 50px;
+    padding: 4px 6px;
+    font-style: italic;
+    color: #4a3520;
+  }
+  .footer {
+    text-align: center;
+    font-size: 7pt;
+    color: #9b7a4f;
+    margin-top: 6px;
+  }
+</style></head><body>
+
+<div class="border-frame">
+  <div class="title">Frontier Record</div>
+  <div class="subtitle">${esc(data.settingName)} \u2022 Savage Worlds Adventure Edition</div>
+
+  <div class="info-bar">
+    <div class="info-item"><div class="info-label">Name</div><div class="info-value">${esc(data.name)}</div></div>
+    <div class="info-item"><div class="info-label">Concept</div><div class="info-value">${esc(data.concept)}</div></div>
+    <div class="info-item"><div class="info-label">Race</div><div class="info-value">${esc(data.raceName)}</div></div>
+    <div class="info-item"><div class="info-label">Funds</div><div class="info-value">$${data.funds.remaining}</div></div>
+  </div>
+
+  <div class="derived-bar">
+    <div class="d-box"><div class="d-label">Pace</div><div class="d-val">${data.stats.pace}</div></div>
+    <div class="d-box"><div class="d-label">Parry</div><div class="d-val">${data.stats.parry}</div></div>
+    <div class="d-box"><div class="d-label">Toughness</div><div class="d-val">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
+    <div class="d-box"><div class="d-label">Size</div><div class="d-val">${data.stats.size}</div></div>
+    <div class="d-box"><div class="d-label">Run</div><div class="d-val">d${data.stats.runDie}</div></div>
+  </div>
+
+  <div class="main-grid">
+    <div>
+      <div class="section">
+        <div class="sec-title">Attributes &amp; Skills</div>
+        ${data.attributes.map(a => {
+          const attrSkills = skillsByAttr[a.name] || [];
+          return `<div class="attr-block">
+            <div class="attr-header"><span>${a.name}</span><span>d${a.die}</span></div>
+            ${attrSkills.map(s => `<div class="skill-line"><span>${s.name}</span><span class="skill-die">d${s.die}</span></div>`).join('')}
+            ${attrSkills.length === 0 ? '<div class="skill-line" style="color:#9b7a4f; font-style:italic;"><span>\u2014</span></div>' : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div>
+      <div class="section">
+        <div class="sec-title">Hindrances</div>
+        ${data.hindrances.length > 0 ? data.hindrances.map(h => `<div class="skill-line"><span>${h.name}</span><span style="font-size:8pt; color:#7a5c3a;">${h.type}</span></div>`).join('') : '<div style="color:#9b7a4f; font-style:italic;">None</div>'}
+      </div>
+      <div class="section">
+        <div class="sec-title">Edges</div>
+        ${data.edges.length > 0 ? data.edges.map(e => `<div style="padding:1px 0; border-bottom:1px dotted #c4a96a; font-size:9pt;"><strong>${e.name}</strong>${e.summary ? ' \u2014 <span style="font-size:7.5pt; color:#7a5c3a;">' + esc(e.summary) + '</span>' : ''}</div>`).join('') : '<div style="color:#9b7a4f; font-style:italic;">None</div>'}
+      </div>
+      <div class="section">
+        <div class="sec-title">Wounds</div>
+        <div class="wound-track"><span class="wound-label">Wounds</span><div class="wound-boxes"><div class="wound-box"></div><div class="wound-box"></div><div class="wound-box"></div></div><span style="font-size:7pt; color:#7a5c3a; margin-left:4px;">Incap.</span></div>
+        <div class="wound-track"><span class="wound-label">Fatigue</span><div class="wound-boxes"><div class="wound-box"></div><div class="wound-box"></div></div><span style="font-size:7pt; color:#7a5c3a; margin-left:4px;">Incap.</span></div>
+      </div>
+    </div>
+  </div>
+
+  ${data.weapons.length > 0 ? `
+  <div class="section">
+    <div class="sec-title">Shootin' Irons &amp; Weapons</div>
+    <table>
+      <tr><th>Weapon</th><th>Damage</th><th>Range</th><th>AP</th><th>ROF</th><th>Shots</th><th>Notes</th></tr>
+      ${data.weapons.map(w => `<tr>
+        <td>${esc(w.name)}</td>
+        <td>${w.damage || '\u2014'}</td>
+        <td>${w.range || '\u2014'}</td>
+        <td>${w.ap || '\u2014'}</td>
+        <td>${w.rof || '\u2014'}</td>
+        <td>${w.shots || '\u2014'}</td>
+        <td style="font-size:7.5pt;">${esc(w.notes || '')}</td>
+      </tr>`).join('')}
+    </table>
+  </div>
+  ` : ''}
+
+  ${data.armor.length > 0 ? `
+  <div class="section">
+    <div class="sec-title">Armor</div>
+    <table>
+      <tr><th>Armor</th><th>Value</th><th>Notes</th></tr>
+      ${data.armor.map(a => `<tr>
+        <td>${esc(a.name)}</td>
+        <td>${a.armor || '\u2014'}</td>
+        <td style="font-size:7.5pt;">${esc(a.notes || '')}</td>
+      </tr>`).join('')}
+    </table>
+  </div>
+  ` : ''}
+
+  ${data.mundane.length > 0 ? `
+  <div class="section">
+    <div class="sec-title">Gear &amp; Sundries</div>
+    <div style="display:flex; flex-wrap:wrap; gap:3px 14px; font-size:9pt;">
+      ${data.mundane.map(g => `<span>${esc(g.name)}${(g.qty || 1) > 1 ? ' x' + g.qty : ''}</span>`).join('')}
+    </div>
+  </div>
+  ` : ''}
+
+  ${data.notes ? `
+  <div class="section">
+    <div class="sec-title">Notes</div>
+    <div class="notes-box">${esc(data.notes)}</div>
+  </div>
+  ` : `
+  <div class="section">
+    <div class="sec-title">Notes</div>
+    <div class="notes-box">&nbsp;</div>
+  </div>
+  `}
+
+  <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
+</div>
+</body></html>`;
+  },
+
+  // ------- STYLE 3: Marshal's Dossier -------
+  _generateSheet3(data) {
+    const esc = (s) => this.escHtml(s);
+
+    // Build attribute bubble display
+    const dieSizes = [4, 6, 8, 10, 12];
+
+    return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>${esc(data.name)} - Marshal's Dossier</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Oswald:wght@400;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @page { size: letter; margin: 0.4in; }
+  body {
+    font-family: 'Special Elite', 'Courier New', monospace;
+    background: #d4c5a0;
+    color: #1a1209;
+    padding: 0.3in;
+    font-size: 9.5pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .dossier {
+    background: linear-gradient(135deg, #c9b88a 0%, #b8a678 50%, #c2b08a 100%);
+    border: 2px solid #3d2b1a;
+    padding: 12px;
+    position: relative;
+  }
+  .dossier::before {
+    content: 'CLASSIFIED';
+    position: absolute;
+    top: 30px;
+    right: -15px;
+    transform: rotate(35deg);
+    font-family: 'Oswald', sans-serif;
+    font-size: 28pt;
+    font-weight: 700;
+    color: rgba(139,30,30,0.08);
+    letter-spacing: 8px;
+    pointer-events: none;
+  }
+  .d-title {
+    font-family: 'Oswald', sans-serif;
+    font-size: 18pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    color: #3d2b1a;
+    text-align: center;
+    border-bottom: 3px solid #3d2b1a;
+    padding-bottom: 4px;
+    margin-bottom: 3px;
+  }
+  .d-sub {
+    text-align: center;
+    font-size: 8pt;
+    color: #6b5a3a;
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .id-row {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .id-field {
+    border-bottom: 1.5px solid #3d2b1a;
+    padding: 2px 0;
+  }
+  .id-label { font-family: 'Oswald', sans-serif; font-size: 7pt; text-transform: uppercase; color: #6b5a3a; letter-spacing: 1px; }
+  .id-value { font-size: 10pt; }
+  .attr-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+    background: #3d2b1a;
+    padding: 8px;
+  }
+  .attr-cell { text-align: center; }
+  .attr-cell-name {
+    font-family: 'Oswald', sans-serif;
+    font-size: 7pt;
+    text-transform: uppercase;
+    color: #c9b88a;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+  }
+  .bubble-row { display: flex; justify-content: center; gap: 3px; }
+  .bubble {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid #c9b88a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 6pt;
+    color: #c9b88a;
+  }
+  .bubble.filled { background: #c9b88a; color: #3d2b1a; font-weight: 700; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .section {
+    border: 1px solid #6b5a3a;
+    padding: 5px 7px;
+    margin-bottom: 6px;
+  }
+  .sec-head {
+    font-family: 'Oswald', sans-serif;
+    font-size: 9pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #3d2b1a;
+    border-bottom: 1px solid #6b5a3a;
+    padding-bottom: 2px;
+    margin-bottom: 4px;
+  }
+  .s-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 1px 0;
+    border-bottom: 1px dotted #a0906a;
+    font-size: 9pt;
+  }
+  .s-row:last-child { border-bottom: none; }
+  .s-die { font-weight: 700; color: #3d2b1a; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  th {
+    background: #3d2b1a;
+    color: #c9b88a;
+    padding: 2px 4px;
+    text-align: left;
+    font-family: 'Oswald', sans-serif;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  td { padding: 2px 4px; border-bottom: 1px solid #a0906a; }
+  .derived-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .dv-box {
+    text-align: center;
+    border: 1.5px solid #3d2b1a;
+    padding: 3px;
+    background: rgba(61,43,26,0.05);
+  }
+  .dv-label { font-family: 'Oswald', sans-serif; font-size: 7pt; text-transform: uppercase; color: #6b5a3a; }
+  .dv-val { font-family: 'Oswald', sans-serif; font-size: 14pt; font-weight: 700; color: #3d2b1a; }
+  .bennies {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+  }
+  .bennies-label { font-family: 'Oswald', sans-serif; font-size: 7pt; text-transform: uppercase; color: #6b5a3a; }
+  .chip {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #3d2b1a;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Oswald', sans-serif;
+    font-size: 7pt;
+    color: #6b5a3a;
+  }
+  .currency-box {
+    display: flex;
+    gap: 12px;
+    font-size: 9pt;
+    margin: 4px 0;
+  }
+  .curr-item { display: flex; gap: 4px; align-items: center; }
+  .curr-label { font-family: 'Oswald', sans-serif; font-size: 7pt; text-transform: uppercase; color: #6b5a3a; }
+  .curr-val { font-weight: 700; color: #3d2b1a; }
+  .notes-area {
+    border: 1px solid #6b5a3a;
+    min-height: 50px;
+    padding: 4px 6px;
+    color: #4a3520;
+  }
+  .footer {
+    text-align: center;
+    font-size: 7pt;
+    color: #8b7a5a;
+    margin-top: 6px;
+  }
+</style></head><body>
+
+<div class="dossier">
+  <div class="d-title">Marshal's Dossier</div>
+  <div class="d-sub">${esc(data.settingName)} \u2022 Savage Worlds</div>
+
+  <div class="id-row">
+    <div class="id-field"><div class="id-label">Subject</div><div class="id-value">${esc(data.name)}</div></div>
+    <div class="id-field"><div class="id-label">Known As</div><div class="id-value">${esc(data.concept)}</div></div>
+    <div class="id-field"><div class="id-label">Race</div><div class="id-value">${esc(data.raceName)}</div></div>
+    <div class="id-field"><div class="id-label">Status</div><div class="id-value">Active</div></div>
+  </div>
+
+  <div class="attr-bar">
+    ${data.attributes.map(a => `<div class="attr-cell">
+      <div class="attr-cell-name">${a.name}</div>
+      <div class="bubble-row">
+        ${dieSizes.map(d => `<div class="bubble ${a.die >= d ? 'filled' : ''}">${d === 4 ? '4' : d === 6 ? '6' : d === 8 ? '8' : d === 10 ? '10' : '12'}</div>`).join('')}
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <div class="derived-row">
+    <div class="dv-box"><div class="dv-label">Pace</div><div class="dv-val">${data.stats.pace}</div></div>
+    <div class="dv-box"><div class="dv-label">Parry</div><div class="dv-val">${data.stats.parry}</div></div>
+    <div class="dv-box"><div class="dv-label">Toughness</div><div class="dv-val">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
+    <div class="dv-box"><div class="dv-label">Size</div><div class="dv-val">${data.stats.size}</div></div>
+    <div class="dv-box"><div class="dv-label">Run</div><div class="dv-val">d${data.stats.runDie}</div></div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="section">
+        <div class="sec-head">Skills</div>
+        ${data.skills.length > 0 ? data.skills.map(s => `<div class="s-row"><span>${s.name} <span style="font-size:7pt; color:#6b5a3a;">(${s.attribute.substring(0,3)})</span></span><span class="s-die">d${s.die}</span></div>`).join('') : '<div style="color:#8b7a5a; font-style:italic;">None</div>'}
+      </div>
+      <div class="section">
+        <div class="sec-head">Hindrances</div>
+        ${data.hindrances.length > 0 ? data.hindrances.map(h => `<div class="s-row"><span>${h.name}</span><span style="font-size:8pt; color:#6b5a3a;">${h.type}</span></div>`).join('') : '<div style="color:#8b7a5a; font-style:italic;">None</div>'}
+      </div>
+    </div>
+    <div>
+      <div class="section">
+        <div class="sec-head">Edges</div>
+        ${data.edges.length > 0 ? data.edges.map(e => `<div style="padding:1px 0; border-bottom:1px dotted #a0906a; font-size:9pt;"><strong>${e.name}</strong>${e.summary ? ' \u2014 <span style="font-size:7.5pt; color:#6b5a3a;">' + esc(e.summary) + '</span>' : ''}</div>`).join('') : '<div style="color:#8b7a5a; font-style:italic;">None</div>'}
+      </div>
+      <div class="section">
+        <div class="sec-head">Bennies</div>
+        <div class="bennies">
+          <span class="bennies-label">Poker Chips:</span>
+          <div class="chip">W</div>
+          <div class="chip">W</div>
+          <div class="chip">W</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="sec-head">Currency</div>
+        <div class="currency-box">
+          <div class="curr-item"><span class="curr-label">Starting:</span><span class="curr-val">$${data.funds.starting}</span></div>
+          <div class="curr-item"><span class="curr-label">Remaining:</span><span class="curr-val">$${data.funds.remaining}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  ${data.weapons.length > 0 ? `
+  <div class="section">
+    <div class="sec-head">Weapons</div>
+    <table>
+      <tr><th>Weapon</th><th>Damage</th><th>Range</th><th>AP</th><th>ROF</th><th>Shots</th><th>Notes</th></tr>
+      ${data.weapons.map(w => `<tr>
+        <td>${esc(w.name)}</td>
+        <td>${w.damage || '\u2014'}</td>
+        <td>${w.range || '\u2014'}</td>
+        <td>${w.ap || '\u2014'}</td>
+        <td>${w.rof || '\u2014'}</td>
+        <td>${w.shots || '\u2014'}</td>
+        <td style="font-size:7.5pt;">${esc(w.notes || '')}</td>
+      </tr>`).join('')}
+    </table>
+  </div>
+  ` : ''}
+
+  ${data.armor.length > 0 ? `
+  <div class="section">
+    <div class="sec-head">Armor</div>
+    <table>
+      <tr><th>Armor</th><th>Value</th><th>Notes</th></tr>
+      ${data.armor.map(a => `<tr>
+        <td>${esc(a.name)}</td>
+        <td>${a.armor || '\u2014'}</td>
+        <td style="font-size:7.5pt;">${esc(a.notes || '')}</td>
+      </tr>`).join('')}
+    </table>
+  </div>
+  ` : ''}
+
+  ${data.mundane.length > 0 ? `
+  <div class="section">
+    <div class="sec-head">Gear</div>
+    <div style="display:flex; flex-wrap:wrap; gap:3px 12px; font-size:9pt;">
+      ${data.mundane.map(g => `<span>${esc(g.name)}${(g.qty || 1) > 1 ? ' x' + g.qty : ''}</span>`).join('')}
+    </div>
+  </div>
+  ` : ''}
+
+  <div class="section">
+    <div class="sec-head">Wounds</div>
+    <div style="display:flex; gap:16px; align-items:center; margin:4px 0;">
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="font-family:'Oswald',sans-serif; font-size:7pt; text-transform:uppercase; color:#6b5a3a;">Head</span>
+        <div style="display:flex; gap:2px;">
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="font-family:'Oswald',sans-serif; font-size:7pt; text-transform:uppercase; color:#6b5a3a;">Torso</span>
+        <div style="display:flex; gap:2px;">
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="font-family:'Oswald',sans-serif; font-size:7pt; text-transform:uppercase; color:#6b5a3a;">Arms</span>
+        <div style="display:flex; gap:2px;">
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="font-family:'Oswald',sans-serif; font-size:7pt; text-transform:uppercase; color:#6b5a3a;">Legs</span>
+        <div style="display:flex; gap:2px;">
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:4px;">
+        <span style="font-family:'Oswald',sans-serif; font-size:7pt; text-transform:uppercase; color:#6b5a3a;">Fatigue</span>
+        <div style="display:flex; gap:2px;">
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+          <div style="width:14px; height:14px; border:1.5px solid #3d2b1a;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  ${data.notes ? `
+  <div class="section">
+    <div class="sec-head">Field Notes</div>
+    <div class="notes-area">${esc(data.notes)}</div>
+  </div>
+  ` : `
+  <div class="section">
+    <div class="sec-head">Field Notes</div>
+    <div class="notes-area">&nbsp;</div>
+  </div>
+  `}
+
+  <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
+</div>
+</body></html>`;
   },
 
   // ----------------------------------------------------------
