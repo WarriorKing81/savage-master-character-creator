@@ -225,6 +225,41 @@ body {
   line-height: 1.6;
 }
 
+/* Setting Tip Box */
+.tip-box {
+  background: linear-gradient(135deg, rgba(62, 48, 28, 0.6) 0%, rgba(45, 36, 22, 0.6) 100%);
+  border: 1px solid var(--accent-dim);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1.2rem;
+  position: relative;
+}
+.tip-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.tip-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.tip-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tip-text {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+  margin: 0;
+}
+
 /* Point Tracker */
 .point-tracker {
   background: linear-gradient(135deg, rgba(42, 35, 24, 0.95) 0%, rgba(35, 30, 22, 0.95) 100%);
@@ -1504,6 +1539,15 @@ select:focus {
     width: 30px;
     height: 30px;
     font-size: 1rem;
+  }
+
+  /* Tip box mobile */
+  .tip-box {
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 1rem;
+  }
+  .tip-text {
+    font-size: 0.8rem;
   }
 }
 

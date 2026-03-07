@@ -241,9 +241,10 @@ const app = {
   },
 
   getStartingFunds() {
-    let base = 500;
-    if (this.character.edges.includes('rich')) base = 1500;
-    if (this.character.edges.includes('filthyRich')) base = 2500;
+    const settingData = this.getSettingData();
+    let base = (settingData && settingData.startingFunds) ? settingData.startingFunds : 500;
+    if (this.character.edges.includes('rich')) base = base * 3;
+    if (this.character.edges.includes('filthyRich')) base = base * 5;
     if (this.character.hindrances.includes('poverty')) base = Math.floor(base / 2);
     return base;
   },
@@ -402,10 +403,25 @@ const app = {
   // ----------------------------------------------------------
   // RENDER MAIN CONTENT
   // ----------------------------------------------------------
+  getTipHtml() {
+    const stepId = STEPS[this.currentStep].id;
+    const settingData = this.getSettingData();
+    if (!settingData || !settingData.tips || !settingData.tips[stepId]) return '';
+    return `
+      <div class="tip-box">
+        <div class="tip-header">
+          <span class="tip-icon">&#x1F4A1;</span>
+          <span class="tip-label">${settingData.name} Tip</span>
+        </div>
+        <p class="tip-text">${settingData.tips[stepId]}</p>
+      </div>
+    `;
+  },
+
   renderContent() {
     const main = document.getElementById('mainContent');
     const step = STEPS[this.currentStep].id;
-    main.innerHTML = `<div class="step-content">${this['render_' + step]()}</div>`;
+    main.innerHTML = `<div class="step-content">${this.getTipHtml()}${this['render_' + step]()}</div>`;
   },
 
   // ----------------------------------------------------------
