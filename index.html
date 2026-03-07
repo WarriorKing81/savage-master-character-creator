@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Savage Worlds Character Creator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-wrap">
+          <img src="logo.png" alt="Savage Master Character Creation" class="logo-img">
+        </div>
+      </div>
+      <ul class="steps" id="stepNav"></ul>
+      <div style="margin-top:auto; padding:1rem; border-top:1px solid var(--border);">
+        <button class="btn btn-sm" style="width:100%; margin-bottom:0.4rem;" onclick="app.exportFoundryVTT()">Export Foundry VTT</button>
+        <button class="btn btn-sm" style="width:100%; margin-bottom:0.4rem;" onclick="app.exportRoll20()">Export Roll20</button>
+        <button class="btn btn-sm" style="width:100%; margin-bottom:0.4rem;" onclick="app.exportJSON()">Export JSON</button>
+        <button class="btn btn-sm" style="width:100%;" onclick="app.resetCharacter()">New Character</button>
+        <div class="sidebar-credit">
+          Created by Visionary Studios 101<br>
+          <span class="credit-name">"WarriorKing"</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="content" id="mainContent"></main>
+
+    <!-- Summary Panel -->
+    <aside class="summary-panel" id="summaryPanel"></aside>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
