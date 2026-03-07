@@ -4,6 +4,7 @@
 
 const STEPS = [
   { id: 'setting', label: 'Setting', icon: '\u2606' },
+  { id: 'bonusRules', label: 'Bonus Rules', icon: '\u2605' },
   { id: 'concept', label: 'Concept', icon: '1' },
   { id: 'race', label: 'Ancestry', icon: '2' },
   { id: 'attributes', label: 'Attributes', icon: '3' },
@@ -15,6 +16,75 @@ const STEPS = [
 ];
 
 const DIE_LABELS = { 0: '—', 4: 'd4', 6: 'd6', 8: 'd8', 10: 'd10', 12: 'd12' };
+
+// Bonus Rules Registry — add new rules by appending objects here
+const BONUS_RULES = [
+  {
+    id: 'competentHero',
+    name: 'Competent Hero',
+    subtitle: '15 Point Start',
+    description: 'Characters begin with 15 skill points instead of the standard 12, giving your players a cushion so they are not forced to hyper-specialize to survive.',
+    icon: '\u2694\uFE0F',
+    category: 'Skills',
+  },
+  {
+    id: 'polyglotFrontier',
+    name: 'Polyglot Frontier',
+    subtitle: 'Language Rules',
+    description: 'Every character automatically receives the Linguist Edge for free. Starting languages equal half the Smarts die (d6 = 3, d8 = 4, etc.). +2 bonus when communicating within the same language family (GM discretion).',
+    icon: '\uD83D\uDDE3\uFE0F',
+    category: 'Languages',
+  },
+];
+
+// Language Families for the 1884 Frontier
+const LANGUAGE_FAMILIES = [
+  {
+    id: 'english', name: 'English',
+    languages: [
+      { id: 'lang_stdAmerican', name: 'Standard American' },
+      { id: 'lang_queensEnglish', name: "Queen's English" },
+      { id: 'lang_frontierPatois', name: 'Frontier Patois' },
+    ]
+  },
+  {
+    id: 'spanish', name: 'Spanish',
+    languages: [
+      { id: 'lang_castilian', name: 'Castilian' },
+      { id: 'lang_mexican', name: 'Mexican' },
+      { id: 'lang_vaquero', name: 'Vaquero / Border Spanish' },
+    ]
+  },
+  {
+    id: 'sioux', name: 'Sioux (Siouan)',
+    languages: [
+      { id: 'lang_crow', name: 'Crow' },
+      { id: 'lang_mandan', name: 'Mandan' },
+      { id: 'lang_yankton', name: 'Yankton' },
+      { id: 'lang_teton', name: 'Teton' },
+      { id: 'lang_osage', name: 'Osage' },
+      { id: 'lang_omaha', name: 'Omaha' },
+    ]
+  },
+  {
+    id: 'algonkian', name: 'Algonkian',
+    languages: [
+      { id: 'lang_arapahoe', name: 'Arapahoe' },
+      { id: 'lang_cheyenne', name: 'Cheyenne' },
+      { id: 'lang_blackfoot', name: 'Blackfoot' },
+      { id: 'lang_ojibwe', name: 'Ojibwe' },
+    ]
+  },
+  {
+    id: 'shoshoni', name: 'Shoshoni (Uto-Aztecan)',
+    languages: [
+      { id: 'lang_pajute', name: 'Pajute' },
+      { id: 'lang_ute', name: 'Ute' },
+      { id: 'lang_comanche', name: 'Comanche' },
+      { id: 'lang_kiowa', name: 'Kiowa' },
+    ]
+  },
+];
 
 // SVG Dice Icons - each returns an inline SVG shaped like the actual die
 function getDieIcon(sides) {
@@ -76,6 +146,8 @@ function createDefaultCharacter() {
     gear: [],
     funds: 500,
     hindrancePointsSpent: { attributes: 0, edges: 0, skills: 0 },
+    bonusRules: [],
+    languages: [],
     notes: '',
   };
 }
@@ -162,7 +234,10 @@ const app = {
 
   getSkillPoints() {
     const base = this.isYoungSkillPoints();
-    const total = base !== null ? base : 15;
+    // Standard SWADE = 12 skill points; Competent Hero bonus rule adds +3
+    const standardBase = 12;
+    const competentBonus = this.character.bonusRules.includes('competentHero') ? 3 : 0;
+    const total = base !== null ? base : (standardBase + competentBonus);
     let spent = 0;
     SWADE.SKILLS.forEach(s => {
       const val = this.character.skills[s.id];
@@ -236,7 +311,11 @@ const app = {
 
   getEdgeBudget() {
     const free = this.getFreeEdgeCount();
-    const taken = this.character.edges.length;
+    let taken = this.character.edges.length;
+    // Polyglot Frontier grants Linguist for free — don't count against budget
+    if (this.character.bonusRules.includes('polyglotFrontier') && this.character.edges.includes('linguist')) {
+      taken -= 1;
+    }
     return { total: free, spent: taken, remaining: free - taken };
   },
 
@@ -522,6 +601,108 @@ const app = {
       this.character.edges = [];
       this.character.gear = [];
       this.character.hindrancePointsSpent = { attributes: 0, edges: 0, skills: 0 };
+      this.character.languages = [];
+    }
+    this.renderContent();
+    this.renderSummary();
+  },
+
+  // ----------------------------------------------------------
+  // BONUS RULES STEP
+  // ----------------------------------------------------------
+  render_bonusRules() {
+    const active = this.character.bonusRules;
+    let html = `
+      <h2>Bonus Rules</h2>
+      <p class="step-desc">Optional rules your Game Master may allow. Toggle any that apply to your campaign.</p>
+      <div class="bonus-gm-note">
+        <span class="bonus-gm-icon">\u2696\uFE0F</span>
+        <span>All bonus rules require <strong>Game Master approval</strong> before use.</span>
+      </div>
+      <div class="bonus-rules-grid">
+    `;
+
+    BONUS_RULES.forEach(rule => {
+      const isActive = active.includes(rule.id);
+      html += `
+        <div class="card bonus-rule-card ${isActive ? 'selected' : ''}" onclick="app.toggleBonusRule('${rule.id}')">
+          <div class="card-header">
+            <span class="card-title">
+              <span style="font-size:1.2rem; margin-right:0.4rem;">${rule.icon}</span>
+              ${rule.name}
+            </span>
+            <label class="toggle-switch" onclick="event.stopPropagation();">
+              <input type="checkbox" ${isActive ? 'checked' : ''} onchange="app.toggleBonusRule('${rule.id}')">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="card-desc" style="font-style:italic; color:var(--accent); margin-bottom:0.3rem; font-size:0.78rem;">${rule.subtitle}</p>
+          <p class="card-desc">${rule.description}</p>
+          <div class="bonus-rule-footer">
+            <span class="card-badge">${rule.category}</span>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+
+    // Show active effects summary
+    if (active.length > 0) {
+      html += `<div class="tip-box" style="margin-top:1.2rem; border-left-color: var(--success);">
+        <div class="tip-header">
+          <span class="tip-icon">\u2605</span>
+          <span class="tip-label" style="color:var(--success);">Active Bonus Rules</span>
+        </div>
+        <ul style="margin:0.3rem 0 0 1.2rem; font-size:0.85rem; color:var(--text); list-style:disc;">`;
+      if (active.includes('competentHero')) {
+        html += '<li>Skill points increased from 12 to <strong>15</strong></li>';
+      }
+      if (active.includes('polyglotFrontier')) {
+        html += '<li>Linguist Edge granted for <strong>free</strong></li>';
+        html += `<li>Starting languages: <strong>${this.getLanguageSlots()}</strong> (Smarts d${this.character.attributes.smarts} \u00F7 2)</li>`;
+      }
+      html += '</ul></div>';
+    }
+
+    html += this.navButtons();
+    return html;
+  },
+
+  toggleBonusRule(id) {
+    const idx = this.character.bonusRules.indexOf(id);
+    if (idx >= 0) {
+      // Toggling OFF
+      this.character.bonusRules.splice(idx, 1);
+      if (id === 'polyglotFrontier') {
+        this.character.languages = [];
+        const lingIdx = this.character.edges.indexOf('linguist');
+        if (lingIdx >= 0) this.character.edges.splice(lingIdx, 1);
+      }
+    } else {
+      // Toggling ON
+      this.character.bonusRules.push(id);
+      if (id === 'polyglotFrontier') {
+        if (!this.character.edges.includes('linguist')) {
+          this.character.edges.push('linguist');
+        }
+      }
+    }
+    this.renderContent();
+    this.renderSummary();
+  },
+
+  getLanguageSlots() {
+    return Math.floor(this.character.attributes.smarts / 2);
+  },
+
+  toggleLanguage(id) {
+    const idx = this.character.languages.indexOf(id);
+    if (idx >= 0) {
+      this.character.languages.splice(idx, 1);
+    } else {
+      if (this.character.languages.length >= this.getLanguageSlots()) return;
+      this.character.languages.push(id);
     }
     this.renderContent();
     this.renderSummary();
@@ -682,6 +863,13 @@ const app = {
     if (newVal < this.getRaceAttributeMinimum(id) || newVal > 12) return;
     if (dir > 0 && this.getAttributePoints().remaining <= 0) return;
     this.character.attributes[id] = newVal;
+    // Trim languages if Smarts decreased and Polyglot Frontier is active
+    if (id === 'smarts' && this.character.bonusRules.includes('polyglotFrontier')) {
+      const maxLangs = this.getLanguageSlots();
+      while (this.character.languages.length > maxLangs) {
+        this.character.languages.pop();
+      }
+    }
     this.renderContent();
     this.renderSummary();
   },
@@ -692,7 +880,7 @@ const app = {
     const filter = this.skillFilter;
     let html = `
       <h2>Skills</h2>
-      <p class="step-desc">Distribute ${budget.total} skill points. Core skills (marked) start at d4 free. Raising above the linked attribute costs 2 points per step.</p>
+      <p class="step-desc">Distribute ${budget.total} skill points${this.character.bonusRules.includes('competentHero') ? ' <span style="color:var(--success); font-weight:600;">(Competent Hero)</span>' : ''}. Core skills (marked) start at d4 free. Raising above the linked attribute costs 2 points per step.</p>
       <div class="point-tracker">
         <div class="pt-item">
           <span class="pt-label">Points Remaining</span>
@@ -743,6 +931,43 @@ const app = {
         </div>
       `;
     });
+
+    // Language selection (Polyglot Frontier)
+    if (this.character.bonusRules.includes('polyglotFrontier')) {
+      const maxLangs = this.getLanguageSlots();
+      const selectedLangs = this.character.languages;
+      html += `
+        <div class="card" style="margin-top:1.5rem; border-color: var(--success);">
+          <div class="card-header">
+            <span class="card-title" style="color:var(--success);">
+              \uD83D\uDDE3\uFE0F Languages (Polyglot Frontier)
+            </span>
+            <span class="card-badge" style="background:var(--success); color:var(--bg-dark);">
+              ${selectedLangs.length} / ${maxLangs}
+            </span>
+          </div>
+          <p class="card-desc">Select ${maxLangs} starting languages (Smarts d${this.character.attributes.smarts} \u00F7 2). Languages within the same family grant <strong>+2</strong> to communication rolls (GM discretion).</p>
+      `;
+
+      LANGUAGE_FAMILIES.forEach(family => {
+        html += `<div class="lang-family">
+          <h4 class="lang-family-name">${family.name}</h4>
+          <div class="lang-options">`;
+        family.languages.forEach(lang => {
+          const checked = selectedLangs.includes(lang.id);
+          const disabled = !checked && selectedLangs.length >= maxLangs;
+          html += `
+            <label class="lang-option ${checked ? 'selected' : ''} ${disabled ? 'disabled' : ''}">
+              <input type="checkbox" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}
+                     onchange="app.toggleLanguage('${lang.id}')">
+              <span>${lang.name}</span>
+            </label>`;
+        });
+        html += '</div></div>';
+      });
+
+      html += '</div>';
+    }
 
     html += this.navButtons();
     return html;
@@ -912,8 +1137,22 @@ const app = {
       else break;
     }
     // Also clamp edges if we have too many
-    while (this.character.edges.length > this.getFreeEdgeCount()) {
-      this.character.edges.pop();
+    // Polyglot Frontier's Linguist doesn't count against budget, so account for it
+    const bonusEdgeCount = (this.character.bonusRules.includes('polyglotFrontier') && this.character.edges.includes('linguist')) ? 1 : 0;
+    while (this.character.edges.length > this.getFreeEdgeCount() + bonusEdgeCount) {
+      // Don't pop linguist if it's a bonus edge
+      const lastEdge = this.character.edges[this.character.edges.length - 1];
+      if (lastEdge === 'linguist' && this.character.bonusRules.includes('polyglotFrontier')) {
+        // Swap with second-to-last and pop that instead
+        if (this.character.edges.length > 1) {
+          const swapIdx = this.character.edges.length - 2;
+          this.character.edges[this.character.edges.length - 1] = this.character.edges[swapIdx];
+          this.character.edges[swapIdx] = 'linguist';
+          this.character.edges.pop();
+        } else break;
+      } else {
+        this.character.edges.pop();
+      }
     }
   },
 
@@ -954,15 +1193,16 @@ const app = {
     filteredEdges.forEach(edge => {
       const isSel = this.character.edges.includes(edge.id);
       const meets = this.meetsEdgeRequirements(edge);
+      const isBonusEdge = (edge.id === 'linguist' && this.character.bonusRules.includes('polyglotFrontier'));
       const canTake = isSel || (meets && budget.remaining > 0);
       const reqStr = this.formatRequirements(edge);
 
       html += `
-        <div class="card ${isSel ? 'selected' : ''} ${!canTake && !isSel ? 'disabled' : ''}"
-             onclick="app.toggleEdge('${edge.id}')" style="cursor:pointer;">
+        <div class="card ${isSel ? 'selected' : ''} ${!canTake && !isSel ? 'disabled' : ''} ${isBonusEdge ? 'bonus-edge' : ''}"
+             onclick="${isBonusEdge ? '' : `app.toggleEdge('${edge.id}')`}" style="cursor:${isBonusEdge ? 'default' : 'pointer'};">
           <div class="card-header">
             <span class="card-title">${edge.name}</span>
-            <span class="card-badge">${edge.category}</span>
+            ${isBonusEdge ? '<span class="card-badge" style="background:var(--success); color:var(--bg-dark);">Polyglot Frontier \u2014 Free</span>' : `<span class="card-badge">${edge.category}</span>`}
           </div>
           <p class="card-desc">${edge.description}</p>
           ${reqStr ? `<p class="card-reqs ${!meets ? 'unmet' : ''}">Requires: ${reqStr}</p>` : ''}
@@ -975,6 +1215,8 @@ const app = {
   },
 
   toggleEdge(id) {
+    // Prevent removing Linguist while Polyglot Frontier is active
+    if (id === 'linguist' && this.character.bonusRules.includes('polyglotFrontier')) return;
     const idx = this.character.edges.indexOf(id);
     if (idx >= 0) {
       this.character.edges.splice(idx, 1);
@@ -1131,7 +1373,16 @@ const app = {
       <div class="card" style="padding:1.5rem;">
         <h2 style="color:var(--accent); margin-bottom:0.2rem;">${c.name || 'Unnamed Character'}</h2>
         <p style="color:var(--text-dim); font-style:italic; margin-bottom:1rem;">${c.concept || 'No concept set'}</p>
-        <p style="color:var(--info); margin-bottom:1.5rem;">Ancestry: ${race ? race.name : 'None selected'}</p>
+        <p style="color:var(--info); margin-bottom:${c.bonusRules.length > 0 ? '0.5rem' : '1.5rem'};">Ancestry: ${race ? race.name : 'None selected'}</p>
+
+        ${c.bonusRules.length > 0 ? `
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.2rem;">
+            ${c.bonusRules.map(rId => {
+              const rule = BONUS_RULES.find(r => r.id === rId);
+              return rule ? `<span class="card-badge" style="background:var(--success); color:var(--bg-dark);">${rule.icon} ${rule.name}</span>` : '';
+            }).join('')}
+          </div>
+        ` : ''}
 
         <div class="derived-stats">
           <div class="derived-stat-box"><span class="ds-label">Pace</span><span class="ds-value">${stats.pace}</span></div>
@@ -1165,9 +1416,25 @@ const app = {
           <ul class="summary-list">
             ${c.edges.map(eId => {
               const e = this.getEdges().find(x => x.id === eId);
-              return e ? `<li>${e.name} &mdash; ${e.summary || ''}</li>` : '';
+              if (!e) return '';
+              const isFree = eId === 'linguist' && c.bonusRules.includes('polyglotFrontier');
+              return `<li>${e.name}${isFree ? ' <span style="color:var(--success);">(Free)</span>' : ''} &mdash; ${e.summary || ''}</li>`;
             }).join('')}
           </ul>
+        ` : ''}
+
+        ${c.bonusRules.includes('polyglotFrontier') && c.languages.length > 0 ? `
+          <h3 style="color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:0.3rem; margin:1rem 0 0.5rem; text-transform:uppercase; font-size:0.85rem; letter-spacing:1px;">Languages</h3>
+          <ul class="summary-list">
+            ${c.languages.map(lId => {
+              for (const fam of LANGUAGE_FAMILIES) {
+                const lang = fam.languages.find(l => l.id === lId);
+                if (lang) return '<li>' + lang.name + ' (' + fam.name + ')</li>';
+              }
+              return '';
+            }).join('')}
+          </ul>
+          <p class="card-desc" style="margin-top:0.3rem; font-size:0.8rem; color:var(--text-dim);">+2 communication bonus within same language family (GM discretion)</p>
         ` : ''}
 
         ${c.gear.length > 0 ? `
@@ -1241,6 +1508,15 @@ const app = {
       <div class="summary-concept">${c.concept || 'No concept'}</div>
       ${race ? `<div class="summary-race">${race.name}</div>` : ''}
 
+      ${c.bonusRules.length > 0 ? `
+        <div style="display:flex; gap:0.3rem; flex-wrap:wrap; margin-top:0.3rem;">
+          ${c.bonusRules.map(rId => {
+            const rule = BONUS_RULES.find(r => r.id === rId);
+            return rule ? `<span class="card-badge" style="background:var(--success); color:var(--bg-dark); font-size:0.65rem;">${rule.icon} ${rule.name}</span>` : '';
+          }).join('')}
+        </div>
+      ` : ''}
+
       <div class="summary-section" style="margin-top:1rem;">
         <h3>Derived Stats</h3>
         <div class="summary-row"><span class="s-label">Pace</span><span class="s-value">${stats.pace}</span></div>
@@ -1282,7 +1558,24 @@ const app = {
           <ul class="summary-list">
             ${c.edges.map(eId => {
               const e = this.getEdges().find(x => x.id === eId);
-              return e ? `<li>${e.name}</li>` : '';
+              if (!e) return '';
+              const isFree = eId === 'linguist' && c.bonusRules.includes('polyglotFrontier');
+              return `<li>${e.name}${isFree ? ' <span style="color:var(--success); font-size:0.75rem;">(Free)</span>' : ''}</li>`;
+            }).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${c.bonusRules.includes('polyglotFrontier') && c.languages.length > 0 ? `
+        <div class="summary-section">
+          <h3>Languages</h3>
+          <ul class="summary-list">
+            ${c.languages.map(lId => {
+              for (const fam of LANGUAGE_FAMILIES) {
+                const lang = fam.languages.find(l => l.id === lId);
+                if (lang) return '<li>' + lang.name + ' <span style="font-size:0.7rem; color:var(--text-dim);">(' + fam.name + ')</span></li>';
+              }
+              return '';
             }).join('')}
           </ul>
         </div>
@@ -1337,6 +1630,17 @@ const app = {
       gear: c.gear.map(g => ({ name: g.name, qty: g.qty || 1, cost: g.cost })),
       derivedStats: stats,
       remainingFunds: this.getRemainingFunds(),
+      bonusRules: c.bonusRules.map(rId => {
+        const rule = BONUS_RULES.find(r => r.id === rId);
+        return rule ? { id: rule.id, name: rule.name } : null;
+      }).filter(Boolean),
+      languages: c.languages.map(lId => {
+        for (const fam of LANGUAGE_FAMILIES) {
+          const lang = fam.languages.find(l => l.id === lId);
+          if (lang) return { name: lang.name, family: fam.name };
+        }
+        return null;
+      }).filter(Boolean),
       notes: c.notes,
     };
     SWADE.ATTRIBUTES.forEach(a => exportData.attributes[a.name] = DIE_LABELS[c.attributes[a.id]]);
@@ -1534,6 +1838,26 @@ const app = {
       });
     }
 
+    // Add languages as a special ability
+    if (c.languages.length > 0) {
+      const langNames = c.languages.map(lId => {
+        for (const fam of LANGUAGE_FAMILIES) {
+          const lang = fam.languages.find(l => l.id === lId);
+          if (lang) return lang.name + ' (' + fam.name + ')';
+        }
+        return null;
+      }).filter(Boolean);
+      actor.items.push({
+        name: 'Languages (Linguist)',
+        type: 'ability',
+        img: 'systems/swade/assets/icons/special-ability.svg',
+        system: {
+          description: '<p>Known languages: ' + langNames.join(', ') + '</p><p>+2 to any dialect within the same language family.</p>',
+          subtype: 'special',
+        },
+      });
+    }
+
     // Add setting name to biography
     if (settingData) {
       actor.system.details.biography.value =
@@ -1662,6 +1986,21 @@ const app = {
       });
     }
 
+    // Add languages to specials
+    if (c.languages.length > 0) {
+      const langNames = c.languages.map(lId => {
+        for (const fam of LANGUAGE_FAMILIES) {
+          const lang = fam.languages.find(l => l.id === lId);
+          if (lang) return lang.name + ' (' + fam.name + ')';
+        }
+        return null;
+      }).filter(Boolean);
+      specials.push({
+        name: 'Languages (Linguist)',
+        description: 'Known languages: ' + langNames.join(', ') + '. +2 to any dialect within the same language family.',
+      });
+    }
+
     const roll20Data = {
       schema_version: 3,
       type: 'character',
@@ -1781,6 +2120,17 @@ const app = {
         starting: this.getStartingFunds(),
         remaining: this.getRemainingFunds()
       },
+      bonusRules: c.bonusRules.map(rId => {
+        const rule = BONUS_RULES.find(r => r.id === rId);
+        return rule ? { id: rule.id, name: rule.name } : null;
+      }).filter(Boolean),
+      languages: c.languages.map(lId => {
+        for (const fam of LANGUAGE_FAMILIES) {
+          const lang = fam.languages.find(l => l.id === lId);
+          if (lang) return { name: lang.name, family: fam.name };
+        }
+        return null;
+      }).filter(Boolean),
       notes: c.notes || ''
     };
   },
@@ -2001,6 +2351,16 @@ const app = {
     </div>
   </div>
 </div>
+
+${data.languages.length > 0 ? `
+<div class="section">
+  <div class="section-title">Languages</div>
+  <div style="display:flex; flex-wrap:wrap; gap:4px;">
+    ${data.languages.map(l => `<span style="background:#f5e6c8; border:1px solid #c4a96a; border-radius:3px; padding:2px 6px; font-size:8pt; color:#3e2a14;"><strong>${esc(l.name)}</strong> <span style="color:#8b7355; font-style:italic;">(${esc(l.family)})</span></span>`).join('')}
+  </div>
+  <div style="font-size:7pt; color:#8b7355; margin-top:4px; font-style:italic;">Linguist: +2 to any dialect within the same language family</div>
+</div>
+` : ''}
 
 ${data.weapons.length > 0 ? `
 <div class="section">
@@ -2262,6 +2622,16 @@ ${data.notes ? `
       </div>
     </div>
   </div>
+
+  ${data.languages.length > 0 ? `
+  <div class="section">
+    <div class="sec-title">Tongues &amp; Dialects</div>
+    <div style="display:flex; flex-wrap:wrap; gap:4px;">
+      ${data.languages.map(l => `<span style="background:#faf0dc; border:1px solid #c4a96a; border-radius:3px; padding:2px 8px; font-size:8pt; color:#3e2a14; font-family:'Lora',serif;"><strong>${esc(l.name)}</strong> <span style="color:#9b7a4f; font-style:italic;">(${esc(l.family)})</span></span>`).join('')}
+    </div>
+    <div style="font-size:7pt; color:#9b7a4f; margin-top:4px; font-style:italic; font-family:'Lora',serif;">Linguist Edge: +2 to any dialect within the same language family</div>
+  </div>
+  ` : ''}
 
   ${data.weapons.length > 0 ? `
   <div class="section">
@@ -2581,6 +2951,16 @@ ${data.notes ? `
       </div>
     </div>
   </div>
+
+  ${data.languages.length > 0 ? `
+  <div class="section">
+    <div class="sec-head">Known Languages</div>
+    <div style="display:flex; flex-wrap:wrap; gap:4px;">
+      ${data.languages.map(l => `<span style="background:#2a2a2a; border:1px solid #555; border-radius:2px; padding:2px 8px; font-size:8pt; color:#e0d6c2; font-family:'Special Elite',cursive;"><strong>${esc(l.name)}</strong> <span style="color:#999; font-style:italic;">(${esc(l.family)})</span></span>`).join('')}
+    </div>
+    <div style="font-size:7pt; color:#888; margin-top:4px; font-style:italic; font-family:'Special Elite',cursive;">Linguist Edge — +2 to any dialect within the same language family</div>
+  </div>
+  ` : ''}
 
   ${data.weapons.length > 0 ? `
   <div class="section">
