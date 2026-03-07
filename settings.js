@@ -14,6 +14,25 @@ const SETTINGS = {
     banner: 'banner-deadlands.jpg',
     startingFunds: 250,
 
+    // Core SWADE gear IDs that don't fit the 1884 Weird West setting
+    blockedCoreGear: [
+      // Medieval melee weapons
+      'axeBattle', 'flail', 'greatAxe', 'greatSword', 'halberd', 'katana',
+      'longSword', 'mace', 'maul', 'pike', 'shortSword', 'warhammer',
+      // Medieval ranged
+      'crossbow', 'crossbowHand', 'javelin', 'longbow',
+      // Modern firearms (Deadlands provides period-accurate replacements)
+      'pistol9mm', 'pistol45', 'revolver', 'desertEagle', 'shotgunPump',
+      'shotgunDouble', 'rifleHunting', 'rifleBolt', 'rifleAssault', 'smg', 'sniperRifle',
+      // Medieval & modern armor
+      'chainMail', 'plateCorselet', 'plateArms', 'plateLeggings',
+      'potHelm', 'steelHelmet', 'kevlarVest', 'kevlarVestHeavy', 'motorcycleHelmet',
+      // Medieval shields
+      'shieldSmall', 'shieldMedium', 'shieldLarge',
+      // Modern or fantasy-only mundane
+      'flashlight', 'spellComponents', 'medicKit',
+    ],
+
     tips: {
       setting: 'Deadlands is set in an alternate 1884 American frontier where the supernatural is real. Classic archetypes include Gunslingers, Hucksters (card-slinging sorcerers), Blessed (faith healers), Mad Scientists (ghost rock inventors), Shamans (nature spirit channelers), Chi Masters (martial artists), Agents (supernatural investigators), and Texas Rangers.',
       concept: 'Think about your character\'s role in the Weird West. Are you a fast-drawing gunslinger? A huckster who deals with demons for power? A blessed preacher fighting evil? A mad scientist building ghost rock gadgets? A shaman communing with nature spirits? Your concept will guide your Edge and skill choices.',
@@ -109,29 +128,47 @@ const SETTINGS = {
 
     GEAR: {
       melee: [
-        { id: 'dl_bowie', name: 'Bowie Knife', damage: 'Str+d4+1', cost: 3, weight: 1, notes: 'AP 1' },
+        { id: 'dl_bowie', name: 'Bowie Knife', damage: 'Str+d4+1', cost: 3, weight: 1, notes: 'AP 1. Iconic frontier blade.' },
         { id: 'dl_tomahawk', name: 'Tomahawk', damage: 'Str+d6', cost: 5, weight: 2, notes: 'Can be thrown (3/6/12)' },
-        { id: 'dl_saber', name: 'Cavalry Saber', damage: 'Str+d6', cost: 15, weight: 3, notes: '+1 Parry when mounted' },
+        { id: 'dl_saber', name: 'Cavalry Saber (M1860)', damage: 'Str+d6', cost: 15, weight: 3, notes: '+1 Parry when mounted' },
         { id: 'dl_warClub', name: 'War Club', damage: 'Str+d6', cost: 3, weight: 3, notes: '' },
         { id: 'dl_pickaxe', name: 'Pickaxe', damage: 'Str+d6', cost: 5, weight: 5, notes: 'AP 1 vs rigid armor' },
-        { id: 'dl_whip', name: 'Whip', damage: 'Str+d4', cost: 5, weight: 2, notes: 'Reach 2, can Entangle' },
+        { id: 'dl_whip', name: 'Bullwhip', damage: 'Str+d4', cost: 5, weight: 2, notes: 'Reach 2, can Entangle/Disarm' },
+        { id: 'dl_blackjack', name: 'Blackjack (Sap)', damage: 'Str+d4', cost: 1, weight: 0.5, notes: 'Non-lethal only (no wound penalty)' },
+        { id: 'dl_brassKnuckles', name: 'Brass Knuckles', damage: 'Str+d4', cost: 2, weight: 0.5, notes: 'Concealed. Punch with teeth.' },
       ],
       ranged: [
-        { id: 'dl_peacemaker', name: 'Colt Peacemaker (.45)', damage: '2d6+1', range: '12/24/48', cost: 15, weight: 2, notes: 'AP 1, Revolver, 6 shots' },
-        { id: 'dl_thunderer', name: 'Colt Thunderer (.41)', damage: '2d6', range: '12/24/48', cost: 13, weight: 2, notes: 'AP 1, Revolver, 6 shots' },
-        { id: 'dl_schofield', name: 'S&W Schofield (.45)', damage: '2d6+1', range: '12/24/48', cost: 15, weight: 2, notes: 'AP 1, Revolver, 6 shots' },
-        { id: 'dl_derringer', name: 'Derringer (.41)', damage: '2d6', range: '5/10/20', cost: 5, weight: 1, notes: '2 shots, easily concealed' },
-        { id: 'dl_winchester', name: 'Winchester \'73 (.44)', damage: '2d8-1', range: '24/48/96', cost: 25, weight: 5, notes: 'AP 2, 15 shots' },
-        { id: 'dl_sharps', name: 'Sharps Big 50 (.50)', damage: '2d10', range: '30/60/120', cost: 30, weight: 8, notes: 'AP 2, 1 shot, Snapfire' },
-        { id: 'dl_coachGun', name: 'Double-Barrel Shotgun', damage: '1-3d6', range: '12/24/48', cost: 12, weight: 6, notes: '2 shots, see shotgun rules' },
-        { id: 'dl_gatlingPistol', name: 'Gatling Pistol', damage: '2d6+1', range: '12/24/48', cost: 400, weight: 5, notes: 'RoF 3, AP 1, 12 shots, ghost rock powered' },
+        // --- Revolvers ---
+        { id: 'dl_peacemaker', name: 'Colt Peacemaker (.45)', damage: '2d6+1', range: '12/24/48', cost: 15, weight: 2, notes: 'AP 1, Revolver, 6 shots. The king of the West.' },
+        { id: 'dl_schofield', name: 'S&W Schofield (.45)', damage: '2d6+1', range: '12/24/48', cost: 15, weight: 2, notes: 'AP 1, Revolver, 6 shots. Top-break, fast reload.' },
+        { id: 'dl_remington', name: 'Remington 1858 (.44)', damage: '2d6+1', range: '12/24/48', cost: 12, weight: 2, notes: 'AP 1, Revolver, 6 shots. Swap cylinders for fast reload.' },
+        { id: 'dl_coltNavy', name: 'Colt Navy 1851 (.36)', damage: '2d6', range: '12/24/48', cost: 8, weight: 2, notes: 'Revolver, 6 shots. Lighter, cheaper.' },
+        { id: 'dl_thunderer', name: 'Colt Thunderer (.41)', damage: '2d6', range: '12/24/48', cost: 13, weight: 2, notes: 'AP 1, Revolver, 6 shots. Double-action.' },
+        { id: 'dl_derringer', name: 'Derringer (.41)', damage: '2d6', range: '5/10/20', cost: 5, weight: 1, notes: '2 shots, easily concealed. Lethal at a card table.' },
+        { id: 'dl_pepperbox', name: 'Pepperbox (.31)', damage: '2d4', range: '5/10/20', cost: 5, weight: 2, notes: '6 shots, RoF 2. Unreliable: 1-2 on skill die = misfire.' },
+        // --- Rifles & Carbines ---
+        { id: 'dl_winchester', name: 'Winchester \'73 (.44)', damage: '2d8-1', range: '24/48/96', cost: 25, weight: 5, notes: 'AP 2, 15 shots. The Gun That Won the West.' },
+        { id: 'dl_henry', name: 'Henry Rifle (.44)', damage: '2d8-1', range: '24/48/96', cost: 28, weight: 5, notes: 'AP 2, 16 shots. High capacity, precursor to Winchester.' },
+        { id: 'dl_sharps', name: 'Sharps Big 50 (.50)', damage: '2d10', range: '30/60/120', cost: 30, weight: 8, notes: 'AP 2, 1 shot, Snapfire. The buffalo gun.' },
+        { id: 'dl_springfield', name: 'Springfield Trapdoor (.45-70)', damage: '2d8', range: '24/48/96', cost: 18, weight: 6, notes: 'AP 2, 1 shot. Standard US Army issue.' },
+        { id: 'dl_spencer', name: 'Spencer Carbine (.52)', damage: '2d8', range: '20/40/80', cost: 20, weight: 5, notes: 'AP 2, 7 shots. Cavalry favorite, buttstock magazine.' },
+        // --- Shotguns ---
+        { id: 'dl_coachGun', name: 'Coach Gun (Double-Barrel)', damage: '1-3d6', range: '12/24/48', cost: 12, weight: 6, notes: '2 shots, see shotgun rules. Terrifying at close range.' },
+        { id: 'dl_winchester87', name: 'Winchester 1887 (Lever Shotgun)', damage: '1-3d6', range: '12/24/48', cost: 18, weight: 7, notes: '5 shots, lever-action. Rapid follow-up shots.' },
+        // --- Other Ranged ---
+        { id: 'dl_gatlingPistol', name: 'Gatling Pistol', damage: '2d6+1', range: '12/24/48', cost: 400, weight: 5, notes: 'RoF 3, AP 1, 12 shots. Ghost rock powered.' },
         { id: 'dl_bow', name: 'Plains Bow', damage: 'Str+d6', range: '12/24/48', cost: 5, weight: 2, notes: '' },
-        { id: 'dl_dynamite', name: 'Dynamite Stick', damage: '2d6', range: '3/6/12', cost: 3, weight: 1, notes: 'MBT, 1 round fuse' },
+        { id: 'dl_dynamite', name: 'Dynamite Stick', damage: '2d6', range: '3/6/12', cost: 3, weight: 1, notes: 'MBT, 1 round fuse. Mining turned warfare.' },
       ],
       armor: [
-        { id: 'dl_duster', name: 'Armored Duster', armor: 1, cost: 25, weight: 5, notes: 'Covers torso, arms, legs', coverage: 'Torso, Arms, Legs' },
-        { id: 'dl_breastplate', name: 'Breastplate', armor: 2, cost: 40, weight: 10, notes: 'Covers torso only', coverage: 'Torso' },
-        { id: 'dl_ghostSteel', name: 'Ghost Steel Vest', armor: 3, cost: 200, weight: 6, notes: 'Covers torso. Ghost rock-forged.', coverage: 'Torso' },
+        { id: 'dl_leatherDuster', name: 'Leather Duster', armor: 1, cost: 10, weight: 5, notes: 'Oil-tanned. +2 vs elements, thorns, bites.', coverage: 'Torso, Arms, Legs' },
+        { id: 'dl_stuffedCoat', name: 'Stuffed Coat (Lined Duster)', armor: 1, cost: 25, weight: 7, notes: 'Canvas/newspaper lined. +1 vs bullets.', coverage: 'Torso, Arms' },
+        { id: 'dl_buffaloCoat', name: 'Heavy Buffalo Coat', armor: 2, cost: 40, weight: 12, notes: 'Bulky (-1 Agility skills). Excellent warmth.', coverage: 'Torso, Arms' },
+        { id: 'dl_ironVest', name: 'Iron Vest (Scrap Plate)', armor: 2, cost: 30, weight: 15, notes: 'Plow-blade armor. -1 Pace, noisy.', coverage: 'Torso' },
+        { id: 'dl_reinforcedVest', name: 'Reinforced Vest (Mail-Lined)', armor: 2, cost: 75, weight: 8, notes: 'Chainmail sewn between wool layers. Custom work.', coverage: 'Torso' },
+        { id: 'dl_bandolier', name: 'Bandolier (Heavy Leather)', armor: 1, cost: 5, weight: 2, notes: 'Torso only. Holds 20 rounds. Slight protection.', coverage: 'Torso' },
+        { id: 'dl_chaps', name: 'Leather Chaps', armor: 1, cost: 8, weight: 3, notes: '+2 vs thorns, bites, rope burns.', coverage: 'Legs' },
+        { id: 'dl_ghostSteel', name: 'Ghost Steel Vest', armor: 3, cost: 200, weight: 6, notes: 'Ghost rock-forged. The finest protection money can buy.', coverage: 'Torso' },
       ],
       mundane: [
         { id: 'dl_lasso', name: 'Lasso (Lariat)', cost: 2, weight: 2, notes: 'Range 3, Athletics to grapple' },

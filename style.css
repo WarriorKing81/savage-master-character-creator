@@ -687,6 +687,15 @@ label {
   background: var(--accent-glow);
 }
 
+.gear-table tr.gear-locked {
+  opacity: 0.3;
+  pointer-events: none;
+}
+.gear-table tr.gear-locked td {
+  text-decoration: line-through;
+  text-decoration-color: rgba(150, 130, 100, 0.4);
+}
+
 .gear-table .cost {
   color: var(--accent);
   font-weight: 600;

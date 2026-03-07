@@ -1061,9 +1061,13 @@ const app = {
     }
     html += '</tr></thead><tbody>';
 
+    const settingData = this.getSettingData();
+    const blockedGear = (settingData && settingData.blockedCoreGear) || [];
+
     items.forEach(item => {
       const owned = this.character.gear.find(g => g.id === item.id);
-      html += `<tr class="${owned ? 'selected' : ''}">`;
+      const isBlocked = blockedGear.includes(item.id);
+      html += `<tr class="${owned ? 'selected' : ''} ${isBlocked ? 'gear-locked' : ''}">`;
       if (tab === 'armor') {
         html += `<td>${item.name}</td><td>+${item.armor}</td><td>${item.coverage}</td><td class="cost">\$${item.cost}</td><td>${item.weight}</td>`;
       } else if (tab === 'shields') {
@@ -1075,7 +1079,11 @@ const app = {
       } else {
         html += `<td>${item.name}</td><td class="cost">\$${item.cost}</td><td>${item.weight}</td><td>${item.notes}</td>`;
       }
-      html += `<td><button class="btn btn-sm" onclick="app.addGear('${tab}','${item.id}')" ${funds < item.cost && !owned ? 'disabled' : ''}>${owned ? '+1' : 'Buy'}</button></td>`;
+      if (isBlocked) {
+        html += `<td><span style="font-size:0.72rem; color:#666; font-style:italic;">N/A</span></td>`;
+      } else {
+        html += `<td><button class="btn btn-sm" onclick="app.addGear('${tab}','${item.id}')" ${funds < item.cost && !owned ? 'disabled' : ''}>${owned ? '+1' : 'Buy'}</button></td>`;
+      }
       html += '</tr>';
     });
 
