@@ -435,7 +435,12 @@ const app = {
   getRaces() {
     const setting = this.getSettingData();
     if (!setting) return SWADE.RACES;
-    return [...setting.RACES, ...SWADE.RACES];
+    // If the setting provides a Human race, filter out the core SWADE Human to avoid duplicates
+    const settingHasHuman = setting.RACES.some(r => r.name.toLowerCase() === 'human');
+    const coreRaces = settingHasHuman
+      ? SWADE.RACES.filter(r => r.name.toLowerCase() !== 'human')
+      : SWADE.RACES;
+    return [...setting.RACES, ...coreRaces];
   },
 
   getEdges() {
@@ -550,6 +555,10 @@ const app = {
   // Step 2: Race
   render_race() {
     const selected = this.character.race;
+    const settingData = this.getSettingData();
+    const settingRaceIds = settingData ? settingData.RACES.map(r => r.id) : [];
+    const hasSettingRaces = settingRaceIds.length > 0;
+
     let html = `
       <h2>Ancestry</h2>
       <p class="step-desc">Choose your character's ancestry. Each has unique abilities and traits that shape gameplay.</p>
@@ -557,13 +566,19 @@ const app = {
     `;
     this.getRaces().forEach(race => {
       const isSel = selected === race.id;
+      const isSettingRace = settingRaceIds.includes(race.id);
+      const isLocked = hasSettingRaces && !isSettingRace;
       html += `
-        <div class="card ${isSel ? 'selected' : ''}" onclick="app.selectRace('${race.id}')" style="cursor:pointer;">
+        <div class="card ${isSel ? 'selected' : ''} ${isLocked ? 'race-locked' : ''}"
+             ${isLocked ? '' : `onclick="app.selectRace('${race.id}')"`}
+             style="${isLocked ? 'cursor:not-allowed; opacity:0.4; pointer-events:none;' : 'cursor:pointer;'}">
           <div class="card-header">
             <span class="card-title">${race.name}</span>
             ${isSel ? '<span class="card-badge">Selected</span>' : ''}
+            ${isLocked ? '<span class="card-badge" style="background:#666;">Locked</span>' : ''}
           </div>
           <p class="card-desc">${race.description}</p>
+          ${isLocked ? `<p style="font-size:0.78rem; color:#999; font-style:italic; margin-top:0.3rem;">Not available in ${settingData.name}</p>` : ''}
           <ul class="ability-list">
             ${race.abilities.map(ab => `
               <li><span class="ability-label">${ab.label || ''}:</span> <span class="ability-desc">${ab.description || ''}</span></li>
