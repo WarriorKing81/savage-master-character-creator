@@ -578,6 +578,15 @@ const app = {
     if (c.hindrances.includes('elderly') && this.getHindrances().find(h => h.id === 'elderly')?.special) {
       pace -= 1;
     }
+    // Setting-specific hindrance pace/run modifiers
+    c.hindrances.forEach(hId => {
+      const h = this.getHindrances().find(x => x.id === hId);
+      if (h && h.special) {
+        if (h.special.paceModifier) pace += h.special.paceModifier;
+        if (h.special.paceSet) { pace = h.special.paceSet; }
+        if (h.special.runDie) runDie = h.special.runDie;
+      }
+    });
 
     // Edge modifiers
     if (c.edges.includes('fleetFooted')) { pace += 2; runDie = 10; }
@@ -658,6 +667,8 @@ const app = {
           const names = req.edges.map(e => { const ed = this.getEdges().find(x => x.id === e); return ed ? ed.name : e; });
           return names.join(' or ');
         }
+        case 'hasArcaneBackground':
+          return 'Any Arcane Background';
         default: return '';
       }
     }).filter(Boolean).join(', ');
