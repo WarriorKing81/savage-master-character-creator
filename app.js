@@ -23,8 +23,8 @@ const BONUS_RULES = [
   {
     id: 'competentHero',
     name: 'Competent Hero',
-    subtitle: '15 Point Start',
-    description: 'Characters begin with 15 skill points instead of the standard 12, giving your players a cushion so they are not forced to hyper-specialize to survive.',
+    subtitle: '18 Point Start',
+    description: 'Characters begin with 18 skill points instead of the standard 15, giving your players a cushion so they are not forced to hyper-specialize to survive.',
     icon: '\u2694\uFE0F',
     category: 'Skills',
   },
@@ -150,6 +150,7 @@ function createDefaultCharacter() {
     bonusRules: [],
     languages: [],
     notes: '',
+    powers: [],
   };
 }
 
@@ -162,6 +163,7 @@ const app = {
   gearTab: 'melee',
   edgeFilter: 'All',
   skillFilter: 'all',
+  powerFilter: 'All',
 
   // ----------------------------------------------------------
   // INIT
@@ -296,9 +298,16 @@ const app = {
         break;
       }
 
-      case 'powers':
-        // Placeholder step — no validation needed
+      case 'powers': {
+        const ab = this.getArcaneBackground();
+        if (ab) {
+          const budget = this.getPowerBudget();
+          if (budget.remaining > 0) {
+            errors.push(`Select ${budget.remaining} more power${budget.remaining > 1 ? 's' : ''} (${budget.spent}/${budget.total} chosen).`);
+          }
+        }
         break;
+      }
 
       case 'gear': {
         const funds = this.getRemainingFunds();
@@ -396,8 +405,8 @@ const app = {
 
   getSkillPoints() {
     const base = this.isYoungSkillPoints();
-    // Standard SWADE = 12 skill points; Competent Hero bonus rule adds +3
-    const standardBase = 12;
+    // Standard SWADE Revised = 15 skill points; Competent Hero bonus rule adds +3
+    const standardBase = 15;
     const competentBonus = this.character.bonusRules.includes('competentHero') ? 3 : 0;
     const total = base !== null ? base : (standardBase + competentBonus);
     let spent = 0;
@@ -484,7 +493,7 @@ const app = {
   getStartingFunds() {
     const settingData = this.getSettingData();
     let base = (settingData && settingData.startingFunds) ? settingData.startingFunds : 500;
-    if (this.character.edges.includes('rich')) base = base * 3;
+    if (this.character.edges.includes('rich')) base = base * 2;
     if (this.character.edges.includes('filthyRich')) base = base * 5;
     if (this.character.hindrances.includes('poverty')) base = Math.floor(base / 2);
     return base;
@@ -581,7 +590,11 @@ const app = {
       if (g.armor) armorBonus = Math.max(armorBonus, g.armor);
     });
 
-    return { pace, runDie, parry, toughness, size, armorBonus };
+    // Grit (Deadlands-specific) — starts at 1 for Novice rank, increases with rank
+    const isDeadlands = this.character.setting === 'deadlands';
+    const grit = isDeadlands ? 1 : null;
+
+    return { pace, runDie, parry, toughness, size, armorBonus, grit };
   },
 
   // ----------------------------------------------------------
@@ -606,6 +619,15 @@ const app = {
         case 'edge_any':
           if (!req.edges.some(e => c.edges.includes(e))) return false;
           break;
+        case 'hasArcaneBackground': {
+          const allEdges = this.getEdges();
+          const hasAB = c.edges.some(eId => {
+            const e = allEdges.find(x => x.id === eId);
+            return e && (e.grantsArcane || e.category === 'Arcane Background');
+          });
+          if (!hasAB) return false;
+          break;
+        }
       }
     }
     // Rank check - only Novice edges for character creation
@@ -690,6 +712,49 @@ const app = {
     return [...SWADE.EDGES, ...setting.EDGES];
   },
 
+  getPowers() {
+    const setting = this.getSettingData();
+    if (!setting || !setting.POWERS) return SWADE.POWERS;
+    return [...SWADE.POWERS, ...setting.POWERS];
+  },
+
+  getArcaneBackground() {
+    const allEdges = this.getEdges();
+    for (const eId of this.character.edges) {
+      const edge = allEdges.find(e => e.id === eId);
+      if (edge && (edge.grantsArcane || edge.category === 'Arcane Background')) return edge;
+    }
+    return null;
+  },
+
+  getPowerBudget() {
+    const ab = this.getArcaneBackground();
+    if (!ab) return { total: 0, spent: 0, remaining: 0, powerPoints: 0 };
+    let total = ab.startingPowers || 0;
+    let powerPoints = ab.powerPoints || 0;
+    // New Powers edge grants +2 each time taken
+    const newPowersCount = this.character.edges.filter(e => e === 'newPowers').length;
+    total += newPowersCount * 2;
+    // Power Points edge grants +5 each time taken
+    const ppEdgeCount = this.character.edges.filter(e => e === 'powerPoints').length;
+    powerPoints += ppEdgeCount * 5;
+    const spent = this.character.powers.length;
+    return { total, spent, remaining: total - spent, powerPoints };
+  },
+
+  getAvailablePowers() {
+    const ab = this.getArcaneBackground();
+    if (!ab) return [];
+    const arcaneType = ab.grantsArcane || null;
+    return this.getPowers().filter(p => {
+      // Only Novice powers at character creation
+      if (p.rank !== 'Novice') return false;
+      // Check archetype restriction
+      if (p.allowedBackgrounds && !p.allowedBackgrounds.includes(arcaneType)) return false;
+      return true;
+    });
+  },
+
   getHindrances() {
     const setting = this.getSettingData();
     if (!setting) return SWADE.HINDRANCES;
@@ -764,6 +829,7 @@ const app = {
       this.character.gear = [];
       this.character.hindrancePointsSpent = { attributes: 0, edges: 0, skills: 0 };
       this.character.languages = [];
+      this.character.powers = [];
     }
     this.renderContent();
     this.renderSummary();
@@ -818,7 +884,7 @@ const app = {
         </div>
         <ul style="margin:0.3rem 0 0 1.2rem; font-size:0.85rem; color:var(--text); list-style:disc;">`;
       if (active.includes('competentHero')) {
-        html += '<li>Skill points increased from 12 to <strong>15</strong></li>';
+        html += '<li>Skill points increased from 15 to <strong>18</strong></li>';
       }
       if (active.includes('polyglotFrontier')) {
         html += '<li>Linguist Edge granted for <strong>free</strong></li>';
@@ -897,49 +963,147 @@ const app = {
 
   // Step 7: Powers (Placeholder)
   render_powers() {
-    const allEdges = this.getEdges();
-    const arcaneEdges = this.character.edges
-      .map(eId => allEdges.find(e => e.id === eId))
-      .filter(e => e && (e.grantsArcane || e.category === 'Arcane Background'));
+    const ab = this.getArcaneBackground();
 
-    let arcaneInfo = '';
-    if (arcaneEdges.length > 0) {
-      arcaneInfo = `
-        <div class="card selected" style="margin-bottom:1rem;">
-          <div class="card-header">
-            <span class="card-title">Your Arcane Background${arcaneEdges.length > 1 ? 's' : ''}</span>
-            <span class="card-badge" style="background:var(--accent); color:var(--bg-dark);">Active</span>
-          </div>
-          ${arcaneEdges.map(e => `
-            <p class="card-desc"><strong>${e.name}</strong> \u2014 ${this.escHtml(e.summary || e.description)}</p>
-          `).join('')}
-        </div>
-        <div class="tip-box" style="margin-top:1rem;">
-          <div class="tip-header">
-            <span class="tip-icon">&#x270D;</span>
-            <span class="tip-label">Fill in Powers on your printed sheet</span>
-          </div>
-          <p class="tip-text">The printed character sheet includes 10 blank Power rows with columns for Power Name, Trapping, PP Cost, Range, and Notes. Fill them in after printing based on your Arcane Background.</p>
-        </div>
-      `;
-    } else {
-      arcaneInfo = `
+    // No Arcane Background — show skip message
+    if (!ab) {
+      return `
+        <h2>Powers</h2>
+        <p class="step-desc">If your character has an Arcane Background, this is where you choose your Powers and Trappings.</p>
         <div class="tip-box" style="margin-top:1rem;">
           <div class="tip-header">
             <span class="tip-icon">&#x2139;</span>
             <span class="tip-label">No Arcane Background</span>
           </div>
-          <p class="tip-text">You don't currently have an Arcane Background edge. You can skip this step. The printed character sheet still includes blank Power rows if you gain one later through Advances.</p>
+          <p class="tip-text">You don't currently have an Arcane Background edge. You can skip this step. If you gain one later through Advances, you'll pick powers then.</p>
         </div>
+        ${this.navButtons()}
       `;
     }
 
+    // Has AB — full powers selection
+    const budget = this.getPowerBudget();
+    const available = this.getAvailablePowers();
+    const selected = this.character.powers;
+    const filter = this.powerFilter;
+
+    // Build AB info card
+    const abInfo = `
+      <div class="card selected" style="margin-bottom:1rem;">
+        <div class="card-header">
+          <span class="card-title">${this.escHtml(ab.name)}</span>
+          <span class="card-badge" style="background:var(--accent); color:var(--bg-dark);">${budget.powerPoints} PP</span>
+        </div>
+        <p class="card-desc">${this.escHtml(ab.summary || ab.description)}</p>
+      </div>
+    `;
+
+    // Budget tracker
+    const budgetClass = budget.remaining < 0 ? 'over-budget' : budget.remaining === 0 ? 'at-budget' : '';
+    const tracker = `
+      <div class="point-tracker ${budgetClass}">
+        <span class="tracker-label">Powers</span>
+        <span class="tracker-pips">
+          ${Array.from({ length: budget.total }, (_, i) =>
+            `<span class="pip ${i < budget.spent ? 'filled' : ''}">${i < budget.spent ? '&#9733;' : '&#9734;'}</span>`
+          ).join('')}
+        </span>
+        <span class="tracker-count">${budget.spent} / ${budget.total}</span>
+      </div>
+    `;
+
+    // Filter buttons
+    const filters = `
+      <div class="filter-bar">
+        <button class="filter-btn ${filter === 'All' ? 'active' : ''}" onclick="app.powerFilter='All'; app.renderContent();">All</button>
+        <button class="filter-btn ${filter === 'Selected' ? 'active' : ''}" onclick="app.powerFilter='Selected'; app.renderContent();">Selected</button>
+      </div>
+    `;
+
+    // Power cards
+    let powersToShow = available;
+    if (filter === 'Selected') {
+      const selIds = selected.map(p => p.id);
+      powersToShow = available.filter(p => selIds.includes(p.id));
+    }
+
+    const cards = powersToShow.map(p => {
+      const sel = selected.find(s => s.id === p.id);
+      const isSelected = !!sel;
+      const canSelect = isSelected || budget.remaining > 0;
+      return `
+        <div class="card ${isSelected ? 'selected' : ''} ${!canSelect && !isSelected ? 'disabled' : ''}"
+             onclick="${canSelect || isSelected ? `app.togglePower('${p.id}')` : ''}"
+             style="${!canSelect && !isSelected ? 'opacity:0.5; cursor:not-allowed;' : 'cursor:pointer;'}">
+          <div class="card-header">
+            <span class="card-title">${this.escHtml(p.name)}</span>
+            <span class="card-badge">${this.escHtml(p.pp)} PP</span>
+          </div>
+          <p class="card-desc">${this.escHtml(p.summary)}</p>
+          <div class="card-meta">
+            <span>Range: ${this.escHtml(p.range)}</span>
+            <span>Duration: ${this.escHtml(p.duration)}</span>
+          </div>
+          <p class="card-desc" style="font-size:0.8rem; opacity:0.8; margin-top:0.3rem;">
+            <em>Trappings: ${this.escHtml(p.trappings)}</em>
+          </p>
+          ${p.allowedBackgrounds ? `<p class="card-desc" style="font-size:0.75rem; color:var(--accent); margin-top:0.2rem;">Restricted: ${p.allowedBackgrounds.join(', ')}</p>` : ''}
+          ${isSelected ? `
+            <div class="trapping-input" onclick="event.stopPropagation();">
+              <label style="font-size:0.8rem; font-weight:600; display:block; margin-top:0.5rem;">Your Trapping:</label>
+              <input type="text" class="input" style="width:100%; margin-top:0.2rem;"
+                     placeholder="e.g. ${this.escHtml(p.trappings.split(',')[0].trim())}"
+                     value="${this.escHtml(sel.trapping || '')}"
+                     oninput="app.updatePowerTrapping('${p.id}', this.value)" />
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    // Non-Novice powers info
+    const allPowers = this.getPowers();
+    const higherPowers = allPowers.filter(p => p.rank !== 'Novice');
+    const higherNote = higherPowers.length > 0 ? `
+      <div class="tip-box" style="margin-top:1rem;">
+        <div class="tip-header">
+          <span class="tip-icon">&#x2139;</span>
+          <span class="tip-label">${higherPowers.length} Higher-Rank Powers Available Later</span>
+        </div>
+        <p class="tip-text">Powers of Seasoned rank and above can be taken through Advances as your character grows. Only Novice-rank powers are available during character creation.</p>
+      </div>
+    ` : '';
+
     return `
       <h2>Powers</h2>
-      <p class="step-desc">If your character has an Arcane Background, this is where you'll note your Powers and Trappings.</p>
-      ${arcaneInfo}
+      <p class="step-desc">Choose your starting powers and describe their trappings — the visual flavor of how each power manifests for your character.</p>
+      ${abInfo}
+      ${tracker}
+      ${filters}
+      <div class="card-grid">${cards}</div>
+      ${higherNote}
       ${this.navButtons()}
     `;
+  },
+
+  togglePower(id) {
+    const idx = this.character.powers.findIndex(p => p.id === id);
+    if (idx >= 0) {
+      this.character.powers.splice(idx, 1);
+    } else {
+      const budget = this.getPowerBudget();
+      if (budget.remaining <= 0) return;
+      this.character.powers.push({ id, trapping: '' });
+    }
+    this.renderContent();
+    this.renderSummary();
+  },
+
+  updatePowerTrapping(id, value) {
+    const p = this.character.powers.find(p => p.id === id);
+    if (p) p.trapping = value;
+    // Don't re-render — just update data silently
+    this.renderSummary();
   },
 
   // Ancestry
@@ -1430,6 +1594,18 @@ const app = {
     const idx = this.character.edges.indexOf(id);
     if (idx >= 0) {
       this.character.edges.splice(idx, 1);
+      // If removed edge was an AB, clear all powers
+      const removedEdge = this.getEdges().find(e => e.id === id);
+      if (removedEdge && (removedEdge.grantsArcane || removedEdge.category === 'Arcane Background')) {
+        this.character.powers = [];
+      }
+      // If removed New Powers edge, trim powers to new budget
+      if (id === 'newPowers') {
+        const budget = this.getPowerBudget();
+        if (budget.remaining < 0) {
+          this.character.powers = this.character.powers.slice(0, budget.total);
+        }
+      }
     } else {
       const edge = this.getEdges().find(e => e.id === id);
       if (!edge || !this.meetsEdgeRequirements(edge, { ignoreStats: true })) return;
@@ -1599,6 +1775,7 @@ const app = {
           <div class="derived-stat-box"><span class="ds-label">Parry</span><span class="ds-value">${stats.parry}</span></div>
           <div class="derived-stat-box"><span class="ds-label">Toughness</span><span class="ds-value">${stats.toughness}${stats.armorBonus ? ' (' + stats.armorBonus + ')' : ''}</span></div>
           <div class="derived-stat-box"><span class="ds-label">Run Die</span><span class="ds-value">d${stats.runDie}</span></div>
+          ${stats.grit !== null ? `<div class="derived-stat-box"><span class="ds-label">Grit</span><span class="ds-value">${stats.grit}</span></div>` : ''}
         </div>
 
         <h3 style="color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:0.3rem; margin:1rem 0 0.5rem; text-transform:uppercase; font-size:0.85rem; letter-spacing:1px;">Attributes</h3>
@@ -1645,6 +1822,38 @@ const app = {
             }).join('')}
           </ul>
           <p class="card-desc" style="margin-top:0.3rem; font-size:0.8rem; color:var(--text-dim);">+2 communication bonus within same language family (GM discretion)</p>
+        ` : ''}
+
+        ${c.powers.length > 0 ? `
+          <h3 style="color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:0.3rem; margin:1rem 0 0.5rem; text-transform:uppercase; font-size:0.85rem; letter-spacing:1px;">Powers</h3>
+          <table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border); text-align:left;">
+                <th style="padding:0.3rem 0.5rem;">Power</th>
+                <th style="padding:0.3rem 0.5rem;">PP</th>
+                <th style="padding:0.3rem 0.5rem;">Range</th>
+                <th style="padding:0.3rem 0.5rem;">Trapping</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${c.powers.map(p => {
+                const pw = this.getPowers().find(x => x.id === p.id);
+                if (!pw) return '';
+                return `<tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:0.3rem 0.5rem; font-weight:600;">${pw.name}</td>
+                  <td style="padding:0.3rem 0.5rem;">${pw.pp}</td>
+                  <td style="padding:0.3rem 0.5rem;">${pw.range}</td>
+                  <td style="padding:0.3rem 0.5rem; font-style:italic;">${this.escHtml(p.trapping || '—')}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          ${(() => {
+            const ab = this.getArcaneBackground();
+            const budget = this.getPowerBudget();
+            return `<div class="summary-row" style="margin-top:0.5rem;"><span class="s-label">Arcane Background</span><span class="s-value">${ab ? ab.name : '—'}</span></div>
+              <div class="summary-row"><span class="s-label">Power Points</span><span class="s-value">${budget.powerPoints}</span></div>`;
+          })()}
         ` : ''}
 
         ${c.gear.length > 0 ? `
@@ -1734,6 +1943,7 @@ const app = {
         <div class="summary-row"><span class="s-label">Toughness</span><span class="s-value">${stats.toughness}${stats.armorBonus ? ' (' + stats.armorBonus + ')' : ''}</span></div>
         <div class="summary-row"><span class="s-label">Size</span><span class="s-value">${stats.size}</span></div>
         <div class="summary-row"><span class="s-label">Run Die</span><span class="s-value">d${stats.runDie}</span></div>
+        ${stats.grit !== null ? `<div class="summary-row"><span class="s-label">Grit</span><span class="s-value">${stats.grit}</span></div>` : ''}
       </div>
 
       <div class="summary-section">
@@ -1788,6 +1998,19 @@ const app = {
               return '';
             }).join('')}
           </ul>
+        </div>
+      ` : ''}
+
+      ${c.powers.length > 0 ? `
+        <div class="summary-section">
+          <h3>Powers</h3>
+          <ul class="summary-list">
+            ${c.powers.map(p => {
+              const pw = this.getPowers().find(x => x.id === p.id);
+              return pw ? `<li>${pw.name}${p.trapping ? ' <span style="font-size:0.7rem; color:var(--text-dim);">(' + this.escHtml(p.trapping) + ')</span>' : ''}</li>` : '';
+            }).join('')}
+          </ul>
+          ${(() => { const b = this.getPowerBudget(); return `<div class="summary-row" style="margin-top:0.3rem;"><span class="s-label">Power Points</span><span class="s-value">${b.powerPoints}</span></div>`; })()}
         </div>
       ` : ''}
 
@@ -1852,6 +2075,16 @@ const app = {
         return null;
       }).filter(Boolean),
       notes: c.notes,
+      powers: c.powers.map(p => {
+        const pw = this.getPowers().find(x => x.id === p.id);
+        return pw ? { name: pw.name, pp: pw.pp, range: pw.range, duration: pw.duration, trapping: p.trapping || '' } : null;
+      }).filter(Boolean),
+      arcaneBackground: (() => {
+        const ab = this.getArcaneBackground();
+        if (!ab) return null;
+        const budget = this.getPowerBudget();
+        return { name: ab.name, type: ab.grantsArcane || 'unknown', powerPoints: budget.powerPoints };
+      })(),
     };
     SWADE.ATTRIBUTES.forEach(a => exportData.attributes[a.name] = DIE_LABELS[c.attributes[a.id]]);
     SWADE.SKILLS.forEach(s => { if (c.skills[s.id] > 0) exportData.skills[s.name] = DIE_LABELS[c.skills[s.id]]; });
@@ -1880,6 +2113,7 @@ const app = {
           toughness: { value: stats.toughness, armor: stats.armorBonus, mod: 0 },
           parry: { value: stats.parry, mod: 0 },
           size: stats.size,
+          ...(stats.grit !== null ? { grit: { value: stats.grit, mod: 0 } } : {}),
         },
         details: {
           biography: { value: c.notes ? '<p>' + this.escHtml(c.notes) + '</p>' : '' },
@@ -1891,7 +2125,7 @@ const app = {
         fatigue: { value: 0, max: 2 },
         wildcard: true,
         advances: { value: 0 },
-        powerPoints: { value: 0, max: 0 },
+        powerPoints: { value: this.getPowerBudget().powerPoints, max: this.getPowerBudget().powerPoints },
         additionalStats: {},
       },
       items: [],
@@ -2068,6 +2302,27 @@ const app = {
       });
     }
 
+    // Powers as items
+    c.powers.forEach(p => {
+      const pw = this.getPowers().find(x => x.id === p.id);
+      if (pw) {
+        actor.items.push({
+          name: pw.name,
+          type: 'power',
+          img: 'systems/swade/assets/icons/power.svg',
+          system: {
+            rank: pw.rank || 'Novice',
+            pp: pw.pp,
+            range: pw.range,
+            duration: pw.duration,
+            trapping: p.trapping || '',
+            description: pw.description || '',
+            arcane: (() => { const ab = this.getArcaneBackground(); return ab ? ab.grantsArcane || '' : ''; })(),
+          },
+        });
+      }
+    });
+
     // Add setting name to biography
     if (settingData) {
       actor.system.details.biography.value =
@@ -2113,6 +2368,7 @@ const app = {
     set('toughness', stats.toughness);
     set('toughness_armor', stats.armorBonus);
     set('size', stats.size);
+    if (stats.grit !== null) set('grit', stats.grit);
     setMax('wounds', 0, 3);
     setMax('fatigue', 0, 2);
     setMax('bennies', 3, 3);
@@ -2211,6 +2467,20 @@ const app = {
       });
     }
 
+    // Powers
+    const powers = c.powers.map(p => {
+      const pw = this.getPowers().find(x => x.id === p.id);
+      return pw ? { name: pw.name, pp: pw.pp, range: pw.range, duration: pw.duration, trapping: p.trapping || '', description: pw.description || '' } : null;
+    }).filter(Boolean);
+
+    // Power Points & AB attribute
+    const abEdge = this.getArcaneBackground();
+    if (abEdge) {
+      const budget = this.getPowerBudget();
+      setMax('power_points', budget.powerPoints, budget.powerPoints);
+      set('arcane_background', abEdge.name);
+    }
+
     const roll20Data = {
       schema_version: 3,
       type: 'character',
@@ -2229,6 +2499,7 @@ const app = {
         armor: armor,
         gear: gear,
         specials: specials,
+        powers: powers,
       },
     };
 
@@ -2341,7 +2612,20 @@ const app = {
         }
         return null;
       }).filter(Boolean),
-      notes: c.notes || ''
+      notes: c.notes || '',
+      powers: (() => {
+        const allPowers = this.getPowers();
+        return c.powers.map(p => {
+          const def = allPowers.find(x => x.id === p.id);
+          return def ? { name: def.name, pp: def.pp, range: def.range, duration: def.duration, trapping: p.trapping || '' } : null;
+        }).filter(Boolean);
+      })(),
+      arcaneBackground: (() => {
+        const ab = this.getArcaneBackground();
+        if (!ab) return null;
+        const budget = this.getPowerBudget();
+        return { name: ab.name, powerPoints: budget.powerPoints };
+      })()
     };
   },
 
@@ -2419,14 +2703,14 @@ const app = {
   body {
     font-family: 'IM Fell English', 'Georgia', serif;
     background:
-      radial-gradient(ellipse at 15% 85%, rgba(120,80,30,0.13) 0%, transparent 50%),
-      radial-gradient(ellipse at 85% 15%, rgba(100,70,25,0.11) 0%, transparent 45%),
-      radial-gradient(ellipse at 50% 50%, rgba(160,130,80,0.06) 0%, transparent 70%),
-      radial-gradient(circle at 30% 20%, rgba(90,60,20,0.09) 0%, transparent 25%),
-      radial-gradient(circle at 70% 75%, rgba(90,60,20,0.07) 0%, transparent 20%),
-      radial-gradient(circle at 10% 10%, rgba(60,40,10,0.06) 0%, transparent 15%),
-      radial-gradient(circle at 90% 90%, rgba(60,40,10,0.05) 0%, transparent 15%),
-      linear-gradient(175deg, #f0deb4 0%, #e8d1a0 25%, #f2e2b8 50%, #e5cfa0 75%, #ead8b0 100%);
+      radial-gradient(ellipse at 15% 85%, rgba(120,80,30,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 15%, rgba(100,70,25,0.05) 0%, transparent 45%),
+      radial-gradient(ellipse at 50% 50%, rgba(160,130,80,0.03) 0%, transparent 70%),
+      radial-gradient(circle at 30% 20%, rgba(90,60,20,0.04) 0%, transparent 25%),
+      radial-gradient(circle at 70% 75%, rgba(90,60,20,0.03) 0%, transparent 20%),
+      radial-gradient(circle at 10% 10%, rgba(60,40,10,0.03) 0%, transparent 15%),
+      radial-gradient(circle at 90% 90%, rgba(60,40,10,0.02) 0%, transparent 15%),
+      linear-gradient(175deg, #f8eed0 0%, #f4e6c0 25%, #f9f0d4 50%, #f3e4be 75%, #f6ebc8 100%);
     color: #2a1f0e;
     padding: 0;
     font-size: 10pt;
@@ -2617,6 +2901,7 @@ const app = {
   <div class="derived-box"><div class="label">Toughness</div><div class="value">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
   <div class="derived-box"><div class="label">Size</div><div class="value">${data.stats.size}</div></div>
   <div class="derived-box"><div class="label">Run</div><div class="value">d${data.stats.runDie}</div></div>
+  ${data.stats.grit !== null ? `<div class="derived-box"><div class="label">Grit</div><div class="value">${data.stats.grit}</div></div>` : ''}
 </div>
 
 <div class="two-col" style="margin-top:8px;">
@@ -2650,20 +2935,23 @@ const app = {
   <div class="section-title">Powers</div>
   <table>
     <tr><th style="width:4%;">#</th><th style="width:24%;">Power Name</th><th style="width:22%;">Trapping</th><th style="width:8%;">PP</th><th style="width:14%;">Range</th><th style="width:28%;">Notes</th></tr>
-    <tr><td>1</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>2</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>3</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>4</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>5</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>6</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>7</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>8</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>9</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-    <tr><td>10</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+    ${(() => {
+      const rows = [];
+      const totalRows = Math.max(10, data.powers.length);
+      for (let i = 0; i < totalRows; i++) {
+        const p = data.powers[i];
+        if (p) {
+          rows.push('<tr><td>' + (i+1) + '</td><td>' + esc(p.name) + '</td><td>' + esc(p.trapping) + '</td><td>' + p.pp + '</td><td>' + (p.range || '\u2014') + '</td><td>' + (p.duration || '') + '</td></tr>');
+        } else {
+          rows.push('<tr><td>' + (i+1) + '</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>');
+        }
+      }
+      return rows.join('\n    ');
+    })()}
   </table>
   <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:8pt; color:#6b4c2a;">
-    <span><strong>Power Points:</strong> ___ / ___</span>
-    <span><strong>Arcane Background:</strong> ________________________</span>
+    <span><strong>Power Points:</strong> ${data.arcaneBackground ? data.arcaneBackground.powerPoints : '___'} / ${data.arcaneBackground ? data.arcaneBackground.powerPoints : '___'}</span>
+    <span><strong>Arcane Background:</strong> ${data.arcaneBackground ? esc(data.arcaneBackground.name) : '________________________'}</span>
   </div>
 </div>
 
@@ -2677,57 +2965,84 @@ ${data.languages.length > 0 ? `
 </div>
 ` : ''}
 
-${data.weapons.length > 0 ? `
+<div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
+</div>
+
+<!-- Page 3: Gear & Equipment -->
+<div class="page">
+<div style="text-align:center; margin-bottom:8px;">
+  <div style="font-size:14pt; font-weight:bold; color:#5c1a0a; border-bottom:2px solid #5c1a0a; padding-bottom:4px;">Gear &amp; Equipment</div>
+</div>
+
 <div class="section">
   <div class="section-title">Weapons</div>
   <table>
     <tr><th>Weapon</th><th>Damage</th><th>Range</th><th>AP</th><th>ROF</th><th>Notes</th></tr>
-    ${data.weapons.map(w => `<tr>
-      <td>${esc(w.name)}</td>
-      <td>${w.damage || '\u2014'}</td>
-      <td>${w.range || '\u2014'}</td>
-      <td>${w.ap || '\u2014'}</td>
-      <td>${w.rof || '\u2014'}</td>
-      <td style="font-size:8pt;">${esc(w.notes || '')}</td>
-    </tr>`).join('')}
+    ${(() => {
+      const rows = [];
+      const totalRows = Math.max(6, data.weapons.length + 6);
+      for (let i = 0; i < totalRows; i++) {
+        const w = data.weapons[i];
+        if (w) {
+          rows.push('<tr><td>' + esc(w.name) + '</td><td>' + (w.damage || '\u2014') + '</td><td>' + (w.range || '\u2014') + '</td><td>' + (w.ap || '\u2014') + '</td><td>' + (w.rof || '\u2014') + '</td><td style="font-size:8pt;">' + esc(w.notes || '') + '</td></tr>');
+        } else {
+          rows.push('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>');
+        }
+      }
+      return rows.join('\n    ');
+    })()}
   </table>
 </div>
-` : ''}
 
-${data.armor.length > 0 ? `
 <div class="section">
   <div class="section-title">Armor</div>
   <table>
     <tr><th>Armor</th><th>Armor Value</th><th>Notes</th></tr>
-    ${data.armor.map(a => `<tr>
-      <td>${esc(a.name)}</td>
-      <td>${a.armor || '\u2014'}</td>
-      <td style="font-size:8pt;">${esc(a.notes || '')}</td>
-    </tr>`).join('')}
+    ${(() => {
+      const rows = [];
+      const totalRows = Math.max(4, data.armor.length + 4);
+      for (let i = 0; i < totalRows; i++) {
+        const a = data.armor[i];
+        if (a) {
+          rows.push('<tr><td>' + esc(a.name) + '</td><td>' + (a.armor || '\u2014') + '</td><td style="font-size:8pt;">' + esc(a.notes || '') + '</td></tr>');
+        } else {
+          rows.push('<tr><td>&nbsp;</td><td></td><td></td></tr>');
+        }
+      }
+      return rows.join('\n    ');
+    })()}
   </table>
 </div>
-` : ''}
 
-${data.mundane.length > 0 ? `
 <div class="section">
   <div class="section-title">Gear &amp; Supplies</div>
-  <div style="display:flex; flex-wrap:wrap; gap:4px 16px;">
-    ${data.mundane.map(g => `<span>${esc(g.name)}${(g.qty || 1) > 1 ? ' x' + g.qty : ''}</span>`).join('')}
+  <table>
+    <tr><th>Item</th><th>Qty</th><th>Notes</th></tr>
+    ${(() => {
+      const rows = [];
+      const totalRows = Math.max(6, data.mundane.length + 6);
+      for (let i = 0; i < totalRows; i++) {
+        const g = data.mundane[i];
+        if (g) {
+          rows.push('<tr><td>' + esc(g.name) + '</td><td>' + (g.qty || 1) + '</td><td style="font-size:8pt;">' + esc(g.notes || '') + '</td></tr>');
+        } else {
+          rows.push('<tr><td>&nbsp;</td><td></td><td></td></tr>');
+        }
+      }
+      return rows.join('\n    ');
+    })()}
+  </table>
+</div>
+
+<div class="section">
+  <div class="section-title">Notes</div>
+  <div class="notes-area" style="min-height:120px; position:relative;">
+    ${data.notes ? esc(data.notes) : '&nbsp;'}
+    <div style="position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none;">
+      ${Array.from({length: 8}, (_, i) => '<div style="border-bottom:1px solid rgba(92,26,10,0.15); height:15px;"></div>').join('')}
+    </div>
   </div>
 </div>
-` : ''}
-
-${data.notes ? `
-<div class="section">
-  <div class="section-title">Notes</div>
-  <div class="notes-area">${esc(data.notes)}</div>
-</div>
-` : `
-<div class="section">
-  <div class="section-title">Notes</div>
-  <div class="notes-area">&nbsp;</div>
-</div>
-`}
 
 <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
 </div>
@@ -2754,12 +3069,12 @@ ${data.notes ? `
   body {
     font-family: 'Lora', 'Georgia', serif;
     background:
-      radial-gradient(ellipse at 25% 75%, rgba(107,58,31,0.09) 0%, transparent 50%),
-      radial-gradient(ellipse at 75% 25%, rgba(120,80,30,0.07) 0%, transparent 45%),
-      radial-gradient(circle at 50% 50%, rgba(155,122,79,0.04) 0%, transparent 60%),
-      radial-gradient(circle at 85% 85%, rgba(80,50,20,0.06) 0%, transparent 20%),
-      radial-gradient(circle at 15% 15%, rgba(80,50,20,0.05) 0%, transparent 18%),
-      linear-gradient(168deg, #ede0c8 0%, #e2d1b0 20%, #eee2ca 45%, #e0ccaa 70%, #ece0c6 100%);
+      radial-gradient(ellipse at 25% 75%, rgba(107,58,31,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 75% 25%, rgba(120,80,30,0.03) 0%, transparent 45%),
+      radial-gradient(circle at 50% 50%, rgba(155,122,79,0.02) 0%, transparent 60%),
+      radial-gradient(circle at 85% 85%, rgba(80,50,20,0.03) 0%, transparent 20%),
+      radial-gradient(circle at 15% 15%, rgba(80,50,20,0.02) 0%, transparent 18%),
+      linear-gradient(168deg, #f6ecda 0%, #f0e4cc 20%, #f7eddc 45%, #eee2c8 70%, #f5ebd8 100%);
     color: #1a1209;
     padding: 0;
     font-size: 9.5pt;
@@ -2978,6 +3293,7 @@ ${data.notes ? `
     <div class="d-box"><div class="d-label">Toughness</div><div class="d-val">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
     <div class="d-box"><div class="d-label">Size</div><div class="d-val">${data.stats.size}</div></div>
     <div class="d-box"><div class="d-label">Run</div><div class="d-val">d${data.stats.runDie}</div></div>
+    ${data.stats.grit !== null ? `<div class="d-box"><div class="d-label">Grit</div><div class="d-val">${data.stats.grit}</div></div>` : ''}
   </div>
 
   <div class="main-grid">
@@ -3019,20 +3335,23 @@ ${data.notes ? `
     <div class="sec-title">Arcane Powers</div>
     <table>
       <tr><th style="width:4%;">#</th><th style="width:24%;">Power</th><th style="width:22%;">Trapping</th><th style="width:8%;">PP</th><th style="width:14%;">Range</th><th style="width:28%;">Notes</th></tr>
-      <tr><td>1</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>2</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>3</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>4</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>5</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>6</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>7</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>8</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>9</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>10</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      ${(() => {
+        const rows = [];
+        const totalRows = Math.max(10, data.powers.length);
+        for (let i = 0; i < totalRows; i++) {
+          const p = data.powers[i];
+          if (p) {
+            rows.push('<tr><td>' + (i+1) + '</td><td>' + esc(p.name) + '</td><td>' + esc(p.trapping) + '</td><td>' + p.pp + '</td><td>' + (p.range || '\u2014') + '</td><td>' + (p.duration || '') + '</td></tr>');
+          } else {
+            rows.push('<tr><td>' + (i+1) + '</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>');
+          }
+        }
+        return rows.join('\n      ');
+      })()}
     </table>
     <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:7.5pt; color:#7a5c3a;">
-      <span><strong>Power Points:</strong> ___ / ___</span>
-      <span><strong>Arcane Background:</strong> ________________________</span>
+      <span><strong>Power Points:</strong> ${data.arcaneBackground ? data.arcaneBackground.powerPoints : '___'} / ${data.arcaneBackground ? data.arcaneBackground.powerPoints : '___'}</span>
+      <span><strong>Arcane Background:</strong> ${data.arcaneBackground ? esc(data.arcaneBackground.name) : '________________________'}</span>
     </div>
   </div>
 
@@ -3046,58 +3365,84 @@ ${data.notes ? `
   </div>
   ` : ''}
 
-  ${data.weapons.length > 0 ? `
+  <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
+</div>
+
+<!-- Page 3: Gear & Equipment -->
+<div class="page">
+<div style="text-align:center; margin-bottom:8px;">
+  <div style="font-size:14pt; font-weight:bold; color:#6b3a1f; border-bottom:2px solid #6b3a1f; padding-bottom:4px; font-family:'Rye',cursive;">Gear &amp; Equipment</div>
+</div>
+
   <div class="section">
     <div class="sec-title">Shootin' Irons &amp; Weapons</div>
     <table>
       <tr><th>Weapon</th><th>Damage</th><th>Range</th><th>AP</th><th>ROF</th><th>Shots</th><th>Notes</th></tr>
-      ${data.weapons.map(w => `<tr>
-        <td>${esc(w.name)}</td>
-        <td>${w.damage || '\u2014'}</td>
-        <td>${w.range || '\u2014'}</td>
-        <td>${w.ap || '\u2014'}</td>
-        <td>${w.rof || '\u2014'}</td>
-        <td>${w.shots || '\u2014'}</td>
-        <td style="font-size:7.5pt;">${esc(w.notes || '')}</td>
-      </tr>`).join('')}
+      ${(() => {
+        const rows = [];
+        const totalRows = Math.max(6, data.weapons.length + 6);
+        for (let i = 0; i < totalRows; i++) {
+          const w = data.weapons[i];
+          if (w) {
+            rows.push('<tr><td>' + esc(w.name) + '</td><td>' + (w.damage || '\u2014') + '</td><td>' + (w.range || '\u2014') + '</td><td>' + (w.ap || '\u2014') + '</td><td>' + (w.rof || '\u2014') + '</td><td>' + (w.shots || '\u2014') + '</td><td style="font-size:7.5pt;">' + esc(w.notes || '') + '</td></tr>');
+          } else {
+            rows.push('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+          }
+        }
+        return rows.join('\n      ');
+      })()}
     </table>
   </div>
-  ` : ''}
 
-  ${data.armor.length > 0 ? `
   <div class="section">
     <div class="sec-title">Armor</div>
     <table>
       <tr><th>Armor</th><th>Value</th><th>Notes</th></tr>
-      ${data.armor.map(a => `<tr>
-        <td>${esc(a.name)}</td>
-        <td>${a.armor || '\u2014'}</td>
-        <td style="font-size:7.5pt;">${esc(a.notes || '')}</td>
-      </tr>`).join('')}
+      ${(() => {
+        const rows = [];
+        const totalRows = Math.max(4, data.armor.length + 4);
+        for (let i = 0; i < totalRows; i++) {
+          const a = data.armor[i];
+          if (a) {
+            rows.push('<tr><td>' + esc(a.name) + '</td><td>' + (a.armor || '\u2014') + '</td><td style="font-size:7.5pt;">' + esc(a.notes || '') + '</td></tr>');
+          } else {
+            rows.push('<tr><td>&nbsp;</td><td></td><td></td></tr>');
+          }
+        }
+        return rows.join('\n      ');
+      })()}
     </table>
   </div>
-  ` : ''}
 
-  ${data.mundane.length > 0 ? `
   <div class="section">
     <div class="sec-title">Gear &amp; Sundries</div>
-    <div style="display:flex; flex-wrap:wrap; gap:3px 14px; font-size:9pt;">
-      ${data.mundane.map(g => `<span>${esc(g.name)}${(g.qty || 1) > 1 ? ' x' + g.qty : ''}</span>`).join('')}
+    <table>
+      <tr><th>Item</th><th>Qty</th><th>Notes</th></tr>
+      ${(() => {
+        const rows = [];
+        const totalRows = Math.max(6, data.mundane.length + 6);
+        for (let i = 0; i < totalRows; i++) {
+          const g = data.mundane[i];
+          if (g) {
+            rows.push('<tr><td>' + esc(g.name) + '</td><td>' + (g.qty || 1) + '</td><td style="font-size:7.5pt;">' + esc(g.notes || '') + '</td></tr>');
+          } else {
+            rows.push('<tr><td>&nbsp;</td><td></td><td></td></tr>');
+          }
+        }
+        return rows.join('\n      ');
+      })()}
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="sec-title">Notes</div>
+    <div class="notes-box" style="min-height:120px; position:relative;">
+      ${data.notes ? esc(data.notes) : '&nbsp;'}
+      <div style="position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none;">
+        ${Array.from({length: 8}, (_, i) => '<div style="border-bottom:1px solid rgba(107,58,31,0.15); height:15px;"></div>').join('')}
+      </div>
     </div>
   </div>
-  ` : ''}
-
-  ${data.notes ? `
-  <div class="section">
-    <div class="sec-title">Notes</div>
-    <div class="notes-box">${esc(data.notes)}</div>
-  </div>
-  ` : `
-  <div class="section">
-    <div class="sec-title">Notes</div>
-    <div class="notes-box">&nbsp;</div>
-  </div>
-  `}
 
   <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
 </div>
@@ -3120,11 +3465,11 @@ ${data.notes ? `
   body {
     font-family: 'Special Elite', 'Courier New', monospace;
     background:
-      radial-gradient(ellipse at 70% 20%, rgba(120,100,60,0.12) 0%, transparent 50%),
-      radial-gradient(ellipse at 25% 75%, rgba(100,80,40,0.1) 0%, transparent 45%),
-      radial-gradient(circle at 80% 80%, rgba(80,60,30,0.08) 0%, transparent 25%),
-      radial-gradient(circle at 15% 25%, rgba(90,70,35,0.06) 0%, transparent 20%),
-      linear-gradient(160deg, #d4c5a0 0%, #c8b890 30%, #d0c198 60%, #c4b488 100%);
+      radial-gradient(ellipse at 70% 20%, rgba(120,100,60,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 25% 75%, rgba(100,80,40,0.05) 0%, transparent 45%),
+      radial-gradient(circle at 80% 80%, rgba(80,60,30,0.04) 0%, transparent 25%),
+      radial-gradient(circle at 15% 25%, rgba(90,70,35,0.03) 0%, transparent 20%),
+      linear-gradient(160deg, #e8ddc0 0%, #e0d5b4 30%, #e4daba 60%, #ddd2b0 100%);
     color: #1a1209;
     padding: 0;
     font-size: 9.5pt;
@@ -3133,9 +3478,9 @@ ${data.notes ? `
   }
   .page {
     background:
-      radial-gradient(circle at 75% 15%, rgba(80,60,30,0.08) 0%, transparent 30%),
-      radial-gradient(circle at 20% 80%, rgba(90,70,35,0.06) 0%, transparent 25%),
-      linear-gradient(135deg, #c9b88a 0%, #b8a678 35%, #c2b08a 65%, #bca880 100%);
+      radial-gradient(circle at 75% 15%, rgba(80,60,30,0.04) 0%, transparent 30%),
+      radial-gradient(circle at 20% 80%, rgba(90,70,35,0.03) 0%, transparent 25%),
+      linear-gradient(135deg, #ddd0aa 0%, #d2c4a0 35%, #d8cca8 65%, #d0c49e 100%);
     border: 2px solid #3d2b1a;
     padding: 0.3in 0.35in;
     position: relative;
@@ -3418,6 +3763,7 @@ ${data.notes ? `
     <div class="dv-box"><div class="dv-label">Toughness</div><div class="dv-val">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
     <div class="dv-box"><div class="dv-label">Size</div><div class="dv-val">${data.stats.size}</div></div>
     <div class="dv-box"><div class="dv-label">Run</div><div class="dv-val">d${data.stats.runDie}</div></div>
+    ${data.stats.grit !== null ? `<div class="dv-box"><div class="dv-label">Grit</div><div class="dv-val">${data.stats.grit}</div></div>` : ''}
   </div>
 
   <div class="two-col">
@@ -3464,20 +3810,23 @@ ${data.notes ? `
     <div class="sec-head">Powers</div>
     <table>
       <tr><th style="width:4%;">#</th><th style="width:24%;">Power</th><th style="width:22%;">Trapping</th><th style="width:8%;">PP</th><th style="width:14%;">Range</th><th style="width:28%;">Notes</th></tr>
-      <tr><td>1</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>2</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>3</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>4</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>5</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>6</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>7</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>8</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>9</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
-      <tr><td>10</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      ${(() => {
+        const rows = [];
+        const totalRows = Math.max(10, data.powers.length);
+        for (let i = 0; i < totalRows; i++) {
+          const p = data.powers[i];
+          if (p) {
+            rows.push('<tr><td>' + (i+1) + '</td><td>' + esc(p.name) + '</td><td>' + esc(p.trapping) + '</td><td>' + p.pp + '</td><td>' + (p.range || '\u2014') + '</td><td>' + (p.duration || '') + '</td></tr>');
+          } else {
+            rows.push('<tr><td>' + (i+1) + '</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>');
+          }
+        }
+        return rows.join('\n      ');
+      })()}
     </table>
     <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:7.5pt; color:#6b5a3a;">
-      <span><strong>Power Points:</strong> ___ / ___</span>
-      <span><strong>Arcane Background:</strong> ________________________</span>
+      <span><strong>Power Points:</strong> ${data.arcaneBackground ? data.arcaneBackground.powerPoints : '___'} / ${data.arcaneBackground ? data.arcaneBackground.powerPoints : '___'}</span>
+      <span><strong>Arcane Background:</strong> ${data.arcaneBackground ? esc(data.arcaneBackground.name) : '________________________'}</span>
     </div>
   </div>
 
@@ -3491,46 +3840,74 @@ ${data.notes ? `
   </div>
   ` : ''}
 
-  ${data.weapons.length > 0 ? `
+  <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
+</div>
+
+<!-- Page 3: Gear & Equipment -->
+<div class="page">
+<div style="text-align:center; margin-bottom:8px;">
+  <div style="font-family:'Oswald',sans-serif; font-size:14pt; font-weight:bold; color:#3d2b1a; letter-spacing:3px; text-transform:uppercase; border-bottom:2px solid #3d2b1a; padding-bottom:4px;">Gear &amp; Equipment</div>
+</div>
+
   <div class="section">
     <div class="sec-head">Weapons</div>
     <table>
       <tr><th>Weapon</th><th>Damage</th><th>Range</th><th>AP</th><th>ROF</th><th>Shots</th><th>Notes</th></tr>
-      ${data.weapons.map(w => `<tr>
-        <td>${esc(w.name)}</td>
-        <td>${w.damage || '\u2014'}</td>
-        <td>${w.range || '\u2014'}</td>
-        <td>${w.ap || '\u2014'}</td>
-        <td>${w.rof || '\u2014'}</td>
-        <td>${w.shots || '\u2014'}</td>
-        <td style="font-size:7.5pt;">${esc(w.notes || '')}</td>
-      </tr>`).join('')}
+      ${(() => {
+        const rows = [];
+        const totalRows = Math.max(6, data.weapons.length + 6);
+        for (let i = 0; i < totalRows; i++) {
+          const w = data.weapons[i];
+          if (w) {
+            rows.push('<tr><td>' + esc(w.name) + '</td><td>' + (w.damage || '\u2014') + '</td><td>' + (w.range || '\u2014') + '</td><td>' + (w.ap || '\u2014') + '</td><td>' + (w.rof || '\u2014') + '</td><td>' + (w.shots || '\u2014') + '</td><td style="font-size:7.5pt;">' + esc(w.notes || '') + '</td></tr>');
+          } else {
+            rows.push('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+          }
+        }
+        return rows.join('\n      ');
+      })()}
     </table>
   </div>
-  ` : ''}
 
-  ${data.armor.length > 0 ? `
   <div class="section">
     <div class="sec-head">Armor</div>
     <table>
       <tr><th>Armor</th><th>Value</th><th>Notes</th></tr>
-      ${data.armor.map(a => `<tr>
-        <td>${esc(a.name)}</td>
-        <td>${a.armor || '\u2014'}</td>
-        <td style="font-size:7.5pt;">${esc(a.notes || '')}</td>
-      </tr>`).join('')}
+      ${(() => {
+        const rows = [];
+        const totalRows = Math.max(4, data.armor.length + 4);
+        for (let i = 0; i < totalRows; i++) {
+          const a = data.armor[i];
+          if (a) {
+            rows.push('<tr><td>' + esc(a.name) + '</td><td>' + (a.armor || '\u2014') + '</td><td style="font-size:7.5pt;">' + esc(a.notes || '') + '</td></tr>');
+          } else {
+            rows.push('<tr><td>&nbsp;</td><td></td><td></td></tr>');
+          }
+        }
+        return rows.join('\n      ');
+      })()}
     </table>
   </div>
-  ` : ''}
 
-  ${data.mundane.length > 0 ? `
   <div class="section">
     <div class="sec-head">Gear</div>
-    <div style="display:flex; flex-wrap:wrap; gap:3px 12px; font-size:9pt;">
-      ${data.mundane.map(g => `<span>${esc(g.name)}${(g.qty || 1) > 1 ? ' x' + g.qty : ''}</span>`).join('')}
-    </div>
+    <table>
+      <tr><th>Item</th><th>Qty</th><th>Notes</th></tr>
+      ${(() => {
+        const rows = [];
+        const totalRows = Math.max(6, data.mundane.length + 6);
+        for (let i = 0; i < totalRows; i++) {
+          const g = data.mundane[i];
+          if (g) {
+            rows.push('<tr><td>' + esc(g.name) + '</td><td>' + (g.qty || 1) + '</td><td style="font-size:7.5pt;">' + esc(g.notes || '') + '</td></tr>');
+          } else {
+            rows.push('<tr><td>&nbsp;</td><td></td><td></td></tr>');
+          }
+        }
+        return rows.join('\n      ');
+      })()}
+    </table>
   </div>
-  ` : ''}
 
   <div class="section">
     <div class="sec-head">Wounds</div>
@@ -3573,17 +3950,15 @@ ${data.notes ? `
     </div>
   </div>
 
-  ${data.notes ? `
   <div class="section">
     <div class="sec-head">Field Notes</div>
-    <div class="notes-area">${esc(data.notes)}</div>
+    <div class="notes-area" style="min-height:120px; position:relative;">
+      ${data.notes ? esc(data.notes) : '&nbsp;'}
+      <div style="position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none;">
+        ${Array.from({length: 8}, (_, i) => '<div style="border-bottom:1px solid rgba(61,43,26,0.15); height:15px;"></div>').join('')}
+      </div>
+    </div>
   </div>
-  ` : `
-  <div class="section">
-    <div class="sec-head">Field Notes</div>
-    <div class="notes-area">&nbsp;</div>
-  </div>
-  `}
 
   <div class="footer">Created with Savage Master Character Creator &bull; Savage Worlds &copy; Pinnacle Entertainment Group</div>
 </div>
