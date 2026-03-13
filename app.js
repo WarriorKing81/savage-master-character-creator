@@ -2035,6 +2035,164 @@ const app = {
   },
 
   // ----------------------------------------------------------
+  // OFFICIAL CONTENT / STORE PAGE
+  // ----------------------------------------------------------
+  showStorePage() {
+    const main = document.getElementById('mainContent');
+    const summaryPanel = document.getElementById('summaryPanel');
+    if (summaryPanel) summaryPanel.style.display = 'none';
+    main.innerHTML = `<div class="step-content">${this.render_storePage()}</div>`;
+    main.scrollTop = 0;
+    // Deselect nav steps
+    document.querySelectorAll('#stepNav li').forEach(li => li.classList.remove('active'));
+  },
+
+  returnFromStore() {
+    const summaryPanel = document.getElementById('summaryPanel');
+    if (summaryPanel) summaryPanel.style.display = '';
+    this.goToStep(this.currentStep);
+  },
+
+  render_storePage() {
+    return `
+      <div class="store-page">
+        <button class="store-back-btn" onclick="app.returnFromStore()">&larr; Back to Character Creator</button>
+
+        <div class="store-header">
+          <h1>Official Savage Worlds Content</h1>
+          <p>Everything you need to play Savage Worlds and its settings. Books, dice, bennies, and more from Pinnacle Entertainment Group.</p>
+        </div>
+
+        <div class="store-quick-links">
+          <a class="store-quick-link" href="https://shop.peginc.com" target="_blank" rel="noopener">PEG Official Store</a>
+          <a class="store-quick-link" href="https://www.drivethrurpg.com/en/publisher/27/pinnacle-entertainment" target="_blank" rel="noopener">DriveThruRPG PDFs</a>
+          <a class="store-quick-link" href="https://www.amazon.com/s?k=savage+worlds+adventure+edition" target="_blank" rel="noopener">Amazon</a>
+          <a class="store-quick-link" href="https://www.kickstarter.com/projects/545820095/deadlands-30th-anniversary-celebration" target="_blank" rel="noopener">Deadlands Kickstarter</a>
+        </div>
+
+        <!-- KICKSTARTER CALLOUT -->
+        <div class="store-callout">
+          <h3>Deadlands 30th Anniversary Kickstarter</h3>
+          <p>New combined core rulebook, starter box, bestiary, leatherbound edition, commemorative dice, and more.</p>
+          <a href="https://www.kickstarter.com/projects/545820095/deadlands-30th-anniversary-celebration" target="_blank" rel="noopener">View on Kickstarter &rarr;</a>
+        </div>
+
+        <!-- CORE SAVAGE WORLDS -->
+        <div class="store-section">
+          <div class="store-section-header">
+            <div class="store-section-color" style="background: var(--accent);"></div>
+            <span class="store-section-title">Savage Worlds Core</span>
+          </div>
+          <div class="store-grid">
+            ${this.storeItem('SWADE Core Rules', 'The complete Savage Worlds Adventure Edition rulebook. Everything you need to run any setting.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10023')}
+            ${this.storeItem('SWADE Core Rules (PDF)', 'Digital-only version of the complete core rulebook.', '$19.99', 'PDF', 'pdf', 'https://shop.peginc.com/products/s2p10023pdf')}
+            ${this.storeItem('Player\'s Book', 'Streamlined player reference with character creation, skills, edges, and combat rules.', '$19.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10031')}
+            ${this.storeItem('GM Screen + Mini Settings', 'Three-panel GM screen with quick-reference tables plus bonus mini settings.', '$19.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10026')}
+            ${this.storeItem('SWADE Accessory Box', 'Dice, bennies, templates, action cards, and status tokens in one box.', '$24.99', 'Accessory', 'accessory', 'https://shop.peginc.com/products/s2p10032')}
+            ${this.storeItem('Savage Worlds Bennies', 'Set of official Savage Worlds benny tokens.', '$14.99', 'Accessory', 'accessory', 'https://shop.peginc.com/products/s2p91105')}
+            ${this.storeItem('Fantasy Companion', 'Extended rules, races, edges, and gear for fantasy settings.', '$44.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10028')}
+            ${this.storeItem('Horror Companion', 'Rules for fear, sanity, monsters, and running horror campaigns.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10029')}
+            ${this.storeItem('Super Powers Companion', 'Build superheroes and villains with the super powers framework.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10030')}
+          </div>
+        </div>
+
+        <!-- DEADLANDS -->
+        <div class="store-section">
+          <div class="store-section-header">
+            <div class="store-section-color" style="background: #b8860b;"></div>
+            <span class="store-section-title">Deadlands: The Weird West</span>
+          </div>
+          <div class="store-grid">
+            ${this.storeItem('Deadlands Core Rules', 'The complete Weird West setting book. Gunslingers, hucksters, mad scientists, and the Reckoning.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10220')}
+            ${this.storeItem('Deadlands Core Rules (PDF)', 'Digital-only version of the Deadlands setting book.', '$19.99', 'PDF', 'pdf', 'https://shop.peginc.com/products/s2p10220pdf')}
+            ${this.storeItem('Deadlands Companion', 'Expanded content: new edges, powers, gear, creatures, and setting rules.', '$24.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10221')}
+            ${this.storeItem('Deadlands Boxed Set', 'Core rules, companion, maps, pawns, dice, bennies, and action deck in one premium box.', '$99.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10227')}
+            ${this.storeItem('Deadlands Dice Set', 'Custom dice themed for the Weird West.', '$12.99', 'Accessory', 'accessory', 'https://shop.peginc.com/products/s2p91123')}
+            ${this.storeItem('Deadlands Bennies', 'Set of 25 poker-chip style Weird West benny tokens.', '$19.99', 'Accessory', 'accessory', 'https://shop.peginc.com/products/s2p91122')}
+            ${this.storeItem('Deadlands Pawns', 'Cardstock figure flats for cowboys, outlaws, undead, and monsters.', '$29.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p10226')}
+            ${this.storeItem('30th Anniversary Kickstarter', 'New combined core rulebook, starter box, bestiary, leatherbound edition, and commemorative accessories.', 'Kickstarter', 'Kickstarter', 'kickstarter', 'https://www.kickstarter.com/projects/545820095/deadlands-30th-anniversary-celebration')}
+          </div>
+        </div>
+
+        <!-- RIFTS -->
+        <div class="store-section">
+          <div class="store-section-header">
+            <div class="store-section-color" style="background: #00bfff;"></div>
+            <span class="store-section-title">Rifts for Savage Worlds</span>
+          </div>
+          <div class="store-grid">
+            ${this.storeItem('Tomorrow Legion Player\'s Guide', 'Core player book for Savage Rifts. Iconic frameworks, gear, and the world of Rifts Earth.', '$29.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11200re')}
+            ${this.storeItem('Savage Foes of North America', 'Bestiary of monsters, D-Bees, demons, and villains for Rifts North America.', '$24.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11202re')}
+            ${this.storeItem('Atlantis and the Demon Seas', 'Sourcebook covering the Splugorth\'s domain, Atlantis, and the oceans of Rifts Earth.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11216')}
+            ${this.storeItem('Blood & Banes', 'Expanded threats, allies, and adventures across North America.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11211')}
+            ${this.storeItem('Arcana & Mysticism', 'Deep dive into magic, psionics, and techno-wizardry in Rifts.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11210')}
+            ${this.storeItem('Empires of Humanity', 'Coalition States, Free Quebec, and the human powers of North America.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11212')}
+            ${this.storeItem('Europa', 'The war-torn continent of Europe in the Rifts megaverse.', '$44.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11227')}
+            ${this.storeItem('South America', 'Land of a Thousand Islands \u2014 the shattered continent south of the border.', '$39.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11223')}
+            ${this.storeItem('Savage Rifts Dice', 'Custom Rifts-themed dice set.', '$12.99', 'Accessory', 'accessory', 'https://shop.peginc.com/products/s2p91112')}
+            ${this.storeItem('Savage Rifts Bennies', 'Rifts-themed benny tokens.', '$19.99', 'Accessory', 'accessory', 'https://shop.peginc.com/products/s2p91113')}
+          </div>
+        </div>
+
+        <!-- 50 FATHOMS -->
+        <div class="store-section">
+          <div class="store-section-header">
+            <div class="store-section-color" style="background: #2e8b57;"></div>
+            <span class="store-section-title">50 Fathoms (Pirates)</span>
+          </div>
+          <div class="store-grid">
+            ${this.storeItem('50 Fathoms Player\'s Guide (PDF)', 'Player reference for the drowned world of Caribdus.', '$4.99', 'PDF', 'pdf', 'https://www.peginc.com/product-category/50fathoms/')}
+            ${this.storeItem('50 Fathoms: Fire and Earth', 'Adventure supplement expanding the 50 Fathoms campaign.', '$14.99', 'Print + PDF', 'print', 'https://www.peginc.com/product-category/50fathoms/')}
+            ${this.storeItem('SWADE Conversion (PDF)', 'Free conversion guide to run 50 Fathoms with Adventure Edition rules.', 'Free', 'Free', 'free', 'https://www.peginc.com/product-category/50fathoms/')}
+            ${this.storeItem('50 Fathoms Figure Flats (PDF)', 'Printable cardstock figures for ships and characters.', '$6.99', 'PDF', 'pdf', 'https://www.peginc.com/product-category/50fathoms/')}
+            ${this.storeItem('Caribdus Map', 'High-resolution map of the flooded world.', 'Free', 'Free', 'free', 'https://www.peginc.com/product-category/50fathoms/')}
+            ${this.storeItem('50 Fathoms on DriveThruRPG', 'Full catalog of 50 Fathoms PDFs including the core setting book.', 'Various', 'PDF', 'pdf', 'https://www.drivethrurpg.com/en/publisher/27/pinnacle-entertainment')}
+          </div>
+        </div>
+
+        <!-- PATHFINDER -->
+        <div class="store-section">
+          <div class="store-section-header">
+            <div class="store-section-color" style="background: #7b2d8e;"></div>
+            <span class="store-section-title">Pathfinder for Savage Worlds</span>
+          </div>
+          <div class="store-grid">
+            ${this.storeItem('Savage Pathfinder Core Rules', 'The world of Golarion adapted for Savage Worlds. Classes, races, spells, and the complete rules.', '$49.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11501')}
+            ${this.storeItem('Savage Pathfinder Core (PDF)', 'Digital-only version of the Pathfinder core rules.', '$24.99', 'PDF', 'pdf', 'https://shop.peginc.com/products/s2p11501pdf')}
+            ${this.storeItem('Bestiary', 'Monsters and creatures of Golarion for Savage Worlds.', '$29.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11502')}
+            ${this.storeItem('Bestiary 2', 'Even more creatures from the depths of Golarion.', '$29.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11522')}
+            ${this.storeItem('Companion', 'Expanded options for players and GMs: new edges, powers, and setting rules.', '$29.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11503')}
+            ${this.storeItem('Advanced Player\'s Guide', 'Additional class edges, archetypes, feats, and character options.', '$29.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11514')}
+            ${this.storeItem('Advanced Player\'s Guide 2', 'Even more character options and expanded content.', '$29.99', 'Print + PDF', 'print', 'https://shop.peginc.com/products/s2p11521')}
+            ${this.storeItem('Savage Pathfinder Dice', 'Custom Pathfinder-themed dice set.', '$14.99', 'Accessory', 'accessory', 'https://shop.peginc.com/products/s2p91143')}
+          </div>
+        </div>
+
+        <div class="store-footer">
+          <p>All products are published by <a href="https://peginc.com" target="_blank" rel="noopener">Pinnacle Entertainment Group</a>.</p>
+          <p>Savage Worlds, Deadlands, and all related marks are trademarks of Pinnacle Entertainment Group.</p>
+          <p>Pathfinder is a trademark of Paizo Inc. Rifts is a trademark of Palladium Books Inc.</p>
+          <p style="margin-top: 0.5rem;">Prices shown are approximate and may vary. Visit the official store for current pricing.</p>
+        </div>
+      </div>
+    `;
+  },
+
+  storeItem(name, desc, price, badgeText, badgeType, url) {
+    return `
+      <div class="store-item">
+        <div class="store-item-name">${name}</div>
+        <div class="store-item-desc">${desc}</div>
+        <div class="store-item-meta">
+          <span class="store-item-badge store-badge-${badgeType}">${badgeText}</span>
+          <span class="store-item-price">${price}</span>
+          <a class="store-item-link" href="${url}" target="_blank" rel="noopener">Visit &rarr;</a>
+        </div>
+      </div>
+    `;
+  },
+
+  // ----------------------------------------------------------
   // EXPORT / RESET
   // ----------------------------------------------------------
   exportJSON() {
