@@ -23,8 +23,8 @@ const BONUS_RULES = [
   {
     id: 'competentHero',
     name: 'Competent Hero',
-    subtitle: '18 Point Start',
-    description: 'Characters begin with 18 skill points instead of the standard 15, giving your players a cushion so they are not forced to hyper-specialize to survive.',
+    subtitle: '15 Point Start',
+    description: 'Characters begin with 15 skill points instead of the standard 12, giving your players a cushion so they are not forced to hyper-specialize to survive.',
     icon: '\u2694\uFE0F',
     category: 'Skills',
   },
@@ -405,8 +405,8 @@ const app = {
 
   getSkillPoints() {
     const base = this.isYoungSkillPoints();
-    // Standard SWADE Revised = 15 skill points; Competent Hero bonus rule adds +3
-    const standardBase = 15;
+    // Standard SWADE = 12 skill points; Competent Hero bonus rule adds +3
+    const standardBase = 12;
     const competentBonus = this.character.bonusRules.includes('competentHero') ? 3 : 0;
     const total = base !== null ? base : (standardBase + competentBonus);
     let spent = 0;
@@ -443,8 +443,8 @@ const app = {
     });
     // Cap at 4
     earned = Math.min(earned, 4);
-    const spent = this.character.hindrancePointsSpent.attributes +
-                  this.character.hindrancePointsSpent.edges +
+    const spent = this.character.hindrancePointsSpent.attributes * 2 +
+                  this.character.hindrancePointsSpent.edges * 2 +
                   this.character.hindrancePointsSpent.skills;
     return { earned, spent, remaining: earned - spent };
   },
@@ -599,11 +599,7 @@ const app = {
       if (g.armor) armorBonus = Math.max(armorBonus, g.armor);
     });
 
-    // Grit (Deadlands-specific) — starts at 1 for Novice rank, increases with rank
-    const isDeadlands = this.character.setting === 'deadlands';
-    const grit = isDeadlands ? 1 : null;
-
-    return { pace, runDie, parry, toughness, size, armorBonus, grit };
+    return { pace, runDie, parry, toughness, size, armorBonus };
   },
 
   // ----------------------------------------------------------
@@ -895,7 +891,7 @@ const app = {
         </div>
         <ul style="margin:0.3rem 0 0 1.2rem; font-size:0.85rem; color:var(--text); list-style:disc;">`;
       if (active.includes('competentHero')) {
-        html += '<li>Skill points increased from 15 to <strong>18</strong></li>';
+        html += '<li>Skill points increased from 12 to <strong>15</strong></li>';
       }
       if (active.includes('polyglotFrontier')) {
         html += '<li>Linguist Edge granted for <strong>free</strong></li>';
@@ -1386,7 +1382,7 @@ const app = {
 
     let html = `
       <h2>Hindrances</h2>
-      <p class="step-desc">Take up to one Major (2 pts) and two Minor (1 pt each) Hindrances for up to 4 points. Spend points on extra Edges, attributes, or skills.</p>
+      <p class="step-desc">Take as many Hindrances as you like. Major Hindrances earn 2 pts, Minor earn 1 pt (max 4 pts count). Spend points on extra Edges, attributes, or skills.</p>
       <div class="point-tracker">
         <div class="pt-item">
           <span class="pt-label">Hindrance Points</span>
@@ -1402,11 +1398,11 @@ const app = {
         </div>
         <div class="pt-item">
           <span class="pt-label">Major</span>
-          <span class="pt-value">${majorCount}/1</span>
+          <span class="pt-value">${majorCount}</span>
         </div>
         <div class="pt-item">
           <span class="pt-label">Minor</span>
-          <span class="pt-value">${minorCount}/2</span>
+          <span class="pt-value">${minorCount}</span>
         </div>
       </div>
     `;
@@ -1497,15 +1493,6 @@ const app = {
       // Reset hindrance point spending if we now have fewer points
       this.clampHindranceSpending();
     } else {
-      const h = this.getHindrances().find(x => x.id === id);
-      // Check limits
-      let majorCount = 0, minorCount = 0;
-      this.character.hindrances.forEach(hId => {
-        const hx = this.getHindrances().find(x => x.id === hId);
-        if (hx) { if (hx.type === 'Major') majorCount++; else minorCount++; }
-      });
-      if (h.type === 'Major' && majorCount >= 1) return;
-      if (h.type === 'Minor' && minorCount >= 2) return;
       this.character.hindrances.push(id);
     }
     this.renderContent();
@@ -1786,7 +1773,6 @@ const app = {
           <div class="derived-stat-box"><span class="ds-label">Parry</span><span class="ds-value">${stats.parry}</span></div>
           <div class="derived-stat-box"><span class="ds-label">Toughness</span><span class="ds-value">${stats.toughness}${stats.armorBonus ? ' (' + stats.armorBonus + ')' : ''}</span></div>
           <div class="derived-stat-box"><span class="ds-label">Run Die</span><span class="ds-value">d${stats.runDie}</span></div>
-          ${stats.grit !== null ? `<div class="derived-stat-box"><span class="ds-label">Grit</span><span class="ds-value">${stats.grit}</span></div>` : ''}
         </div>
 
         <h3 style="color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:0.3rem; margin:1rem 0 0.5rem; text-transform:uppercase; font-size:0.85rem; letter-spacing:1px;">Attributes</h3>
@@ -1954,7 +1940,6 @@ const app = {
         <div class="summary-row"><span class="s-label">Toughness</span><span class="s-value">${stats.toughness}${stats.armorBonus ? ' (' + stats.armorBonus + ')' : ''}</span></div>
         <div class="summary-row"><span class="s-label">Size</span><span class="s-value">${stats.size}</span></div>
         <div class="summary-row"><span class="s-label">Run Die</span><span class="s-value">d${stats.runDie}</span></div>
-        ${stats.grit !== null ? `<div class="summary-row"><span class="s-label">Grit</span><span class="s-value">${stats.grit}</span></div>` : ''}
       </div>
 
       <div class="summary-section">
@@ -2124,7 +2109,6 @@ const app = {
           toughness: { value: stats.toughness, armor: stats.armorBonus, mod: 0 },
           parry: { value: stats.parry, mod: 0 },
           size: stats.size,
-          ...(stats.grit !== null ? { grit: { value: stats.grit, mod: 0 } } : {}),
         },
         details: {
           biography: { value: c.notes ? '<p>' + this.escHtml(c.notes) + '</p>' : '' },
@@ -2379,7 +2363,6 @@ const app = {
     set('toughness', stats.toughness);
     set('toughness_armor', stats.armorBonus);
     set('size', stats.size);
-    if (stats.grit !== null) set('grit', stats.grit);
     setMax('wounds', 0, 3);
     setMax('fatigue', 0, 2);
     setMax('bennies', 3, 3);
@@ -2912,7 +2895,6 @@ const app = {
   <div class="derived-box"><div class="label">Toughness</div><div class="value">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
   <div class="derived-box"><div class="label">Size</div><div class="value">${data.stats.size}</div></div>
   <div class="derived-box"><div class="label">Run</div><div class="value">d${data.stats.runDie}</div></div>
-  ${data.stats.grit !== null ? `<div class="derived-box"><div class="label">Grit</div><div class="value">${data.stats.grit}</div></div>` : ''}
 </div>
 
 <div class="two-col" style="margin-top:8px;">
@@ -3304,7 +3286,6 @@ ${data.languages.length > 0 ? `
     <div class="d-box"><div class="d-label">Toughness</div><div class="d-val">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
     <div class="d-box"><div class="d-label">Size</div><div class="d-val">${data.stats.size}</div></div>
     <div class="d-box"><div class="d-label">Run</div><div class="d-val">d${data.stats.runDie}</div></div>
-    ${data.stats.grit !== null ? `<div class="d-box"><div class="d-label">Grit</div><div class="d-val">${data.stats.grit}</div></div>` : ''}
   </div>
 
   <div class="main-grid">
@@ -3774,7 +3755,6 @@ ${data.languages.length > 0 ? `
     <div class="dv-box"><div class="dv-label">Toughness</div><div class="dv-val">${data.stats.toughness}${data.stats.armorBonus ? '(' + data.stats.armorBonus + ')' : ''}</div></div>
     <div class="dv-box"><div class="dv-label">Size</div><div class="dv-val">${data.stats.size}</div></div>
     <div class="dv-box"><div class="dv-label">Run</div><div class="dv-val">d${data.stats.runDie}</div></div>
-    ${data.stats.grit !== null ? `<div class="dv-box"><div class="dv-label">Grit</div><div class="dv-val">${data.stats.grit}</div></div>` : ''}
   </div>
 
   <div class="two-col">
