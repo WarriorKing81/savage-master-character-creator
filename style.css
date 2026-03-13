@@ -2110,8 +2110,83 @@ select:focus {
 }
 
 .store-section {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
+
+/* --- Section Banner --- */
+.store-section-banner {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 1.2rem;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  min-height: 160px;
+  background: var(--bg-card);
+}
+.store-banner-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.22;
+  z-index: 0;
+  filter: blur(1px);
+}
+.store-banner-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  padding: 1.2rem 1.5rem;
+  min-width: 0;
+}
+.store-banner-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+}
+.store-banner-desc {
+  font-size: 0.88rem;
+  color: var(--text);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  max-width: 360px;
+  line-height: 1.4;
+}
+.store-banner-showcase {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  padding: 0.8rem 1.2rem 0.8rem 0;
+  flex-shrink: 0;
+}
+.store-showcase-book {
+  width: 90px;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
+  object-fit: cover;
+  max-height: 130px;
+}
+.store-showcase-hero {
+  width: 110px;
+  max-height: 160px;
+}
+.store-showcase-accessory {
+  width: 65px;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  object-fit: cover;
+  max-height: 95px;
+}
+
+/* Legacy header (unused but kept) */
 .store-section-header {
   display: flex;
   align-items: center;
@@ -2148,6 +2223,31 @@ select:focus {
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
+}
+.store-item-has-img {
+  flex-direction: row;
+  gap: 0.8rem;
+  align-items: stretch;
+}
+.store-item-img {
+  flex-shrink: 0;
+  width: 70px;
+  display: flex;
+  align-items: flex-start;
+}
+.store-item-img img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  object-fit: cover;
+  max-height: 100px;
+}
+.store-item-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 .store-item:hover {
   border-color: var(--accent-dim);
@@ -2284,4 +2384,211 @@ select:focus {
   }
   .store-header h1 { font-size: 1.3rem; }
   .store-quick-links { flex-direction: column; align-items: stretch; }
+  .store-section-banner {
+    flex-direction: column;
+    min-height: auto;
+  }
+  .store-banner-content {
+    padding: 1rem;
+  }
+  .store-banner-title {
+    font-size: 1.2rem;
+  }
+  .store-banner-showcase {
+    padding: 0 1rem 0.8rem 1rem;
+    justify-content: center;
+  }
+  .store-showcase-book {
+    width: 70px;
+    max-height: 100px;
+  }
+  .store-showcase-accessory {
+    width: 50px;
+    max-height: 72px;
+  }
+  .store-item-has-img {
+    flex-direction: row;
+  }
+  .store-item-img {
+    width: 55px;
+  }
+}
+
+/* =============================
+   INSTALL / GET THE APP MODAL
+   ============================= */
+.install-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+}
+.install-overlay.active {
+  display: flex;
+}
+.install-modal {
+  position: relative;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 420px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.install-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.8rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.6rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+}
+.install-close:hover {
+  color: var(--text);
+}
+.install-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.install-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  margin-bottom: 0.8rem;
+}
+.install-header h2 {
+  font-family: var(--font-heading);
+  color: var(--accent);
+  font-size: 1.4rem;
+  margin-bottom: 0.4rem;
+}
+.install-header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.install-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+.install-tab {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.install-tab:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.install-tab.active {
+  background: var(--accent);
+  color: var(--bg-dark);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.install-content {
+  padding: 0.2rem 0;
+}
+.install-subtitle {
+  font-family: var(--font-heading);
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-bottom: 0.8rem;
+}
+.install-steps {
+  list-style: none;
+  counter-reset: steps;
+  padding: 0;
+  margin: 0;
+}
+.install-steps li {
+  counter-increment: steps;
+  position: relative;
+  padding: 0.7rem 0.5rem 0.7rem 2.8rem;
+  margin-bottom: 0.4rem;
+  background: var(--bg-dark);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+.install-steps li::before {
+  content: counter(steps);
+  position: absolute;
+  left: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg-dark);
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.install-icon {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 1.1em;
+  vertical-align: middle;
+  color: var(--accent);
+}
+.install-native-btn {
+  width: 100%;
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-family: var(--font-heading);
+  background: var(--accent);
+  color: var(--bg-dark);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  transition: background 0.2s;
+}
+.install-native-btn:hover {
+  background: #d4a64a;
+}
+.install-note {
+  margin-top: 1rem;
+  padding: 0.7rem;
+  background: rgba(184, 134, 11, 0.1);
+  border: 1px solid rgba(184, 134, 11, 0.3);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .install-modal {
+    padding: 1.5rem 1.2rem;
+    border-radius: 14px;
+  }
+  .install-header h2 {
+    font-size: 1.2rem;
+  }
 }
